@@ -1,10 +1,10 @@
 "use strict";
 
 let _titles = ["Glassoid", "Saritan", "Damian", "Siren", "Memoire 2", "Beat Two",
-    "Pianos", "Brass Beat", "Kali", "Nouvel V", "Ricochet", "Sissy", "The G Waltz",
-    "Abandon", "Boringe", "Answered", "Virgo Waltz", "Dawn", "Ooldies", "YRU Dan",
-    "H+Over", "Krama", "Passing", "Deep", "Harpez", "Porcelina", "Echoes", "Fallup",
-    "Tracking", "Miles", "Moon Dark", "String Blocks", "Trest", "La Tenie", "X-Mass",
+    // "Pianos", "Brass Beat", "Kali", "Nouvel V", "Ricochet", "Sissy", "The G Waltz",
+    // "Abandon", "Boringe", "Answered", "Virgo Waltz", "Dawn", "Ooldies", "YRU Dan",
+    // "H+Over", "Krama", "Passing", "Deep", "Harpez", "Porcelina", "Echoes", "Fallup",
+    // "Tracking", "Miles", "Moon Dark", "String Blocks", "Trest", "La Tenie", "X-Mass",
     "Kalinyxta"]; // RESPECTIVE SONGS TITLES
 // ^^^ SAME LENGTH & ORDER AS THE ABOVE !!! ^^^
 let _albums = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -46,8 +46,10 @@ const _ballFont = _fontHeight + "px tahoma";
 const _barFont = _fontHeight + 2 + "px tahoma";
 const _titleFont = _fontHeight * 2 + "px tahoma";
 
-let _music_path = "stuff/audio/";
-let _img_path = "stuff/";
+let _music_path = "https://github.com/noembryo/noEmbryoPlayer/raw/refs/heads/main/docs/audio/";
+let _img_path = "https://github.com/noembryo/noEmbryoPlayer/raw/refs/heads/main/docs/images/";
+// let _music_path = "stuff/audio/";
+// let _img_path = "stuff/";
 let _player = document.createElement("audio");
 let _playlist_ids = Array.from({length: _titles.length},
     (_, i) => i);
