@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>noEmbryo Music Player</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+
+    <style>
+        /* Reset default margins and padding */
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Main container with Flexbox */
+        #main-container {
+            display: flex;
+            flex-wrap: nowrap; /* Prevent wrapping unless media query triggers */
+            justify-content: space-between; /* Spread children across available space */
+            gap: 20px; /* Space between left and right containers */
+            max-width: 100%; /* Ensure it fits within the viewport */
+        }
+
+        /* Left container */
+        #left-container {
+            flex: 0 0 60%;
+            max-width: 58%;
+            min-width: 300px;
+        }
+
+        /* Scrollable playlist container */
+        #playlist-container {
+            max-height: 320px; /* Fixed height, adjust as needed */
+            overflow-y: auto; /* Vertical scrolling when content overflows */
+            border: 1px solid #ccc; /* Optional: visual boundary */
+            background-color: transparent; /* Optional: consistent background */
+        }
+
+        /* Playlist styling with multi-column layout */
+        #playlist {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+            column-count: auto; /* Let the browser decide based on width */
+            column-width: 150px; /* Minimum width per column, adjust as needed */
+            column-gap: 10px; /* Space between columns */
+            width: 100%; /* Ensure it fills the container */
+        }
+        #playlist li {
+            padding: 5px;
+            break-inside: avoid; /* Prevent splitting list items across columns */
+            box-sizing: border-box;
+        }
+        /*noinspection CssUnusedSymbol*/
+        #playlist li.album-separator {
+            font-weight: bold;
+            padding: 5px;
+            border-top: 1px solid #ccc; /* Horizontal line above album name */
+            margin-top: 5px; /* Space before separator */
+            background-color: transparent; /* Light background for distinction */
+        }
+        /*noinspection CssUnusedSymbol*/
+        #playlist li.active {
+            font-weight: bold;
+            text-decoration: underline;
+        }
+        #playlist li span:hover {
+            text-decoration: underline;
+        }
+        /*noinspection CssUnusedSymbol*/
+        #playlist li.disabled {
+            color: gray;
+            /*text-decoration: line-through;*/
+        }
+
+        /* Track display */
+        #track-display {
+            text-align: center;
+            margin: 10px 0;
+            font-style: italic;
+        }
+
+        /* Player transport container */
+        #player-transport {
+            display: flex;
+            align-items: center; /* Vertically center the buttons and audio controls */
+            justify-content: center; /* Horizontally center the group */
+            gap: 10px; /* Space between elements */
+            margin: 10px 0; /* Spacing above and below the transport */
+        }
+
+        button {
+            border-radius: 20%/100%;
+            border-width: 0;
+            background: #414141;
+        }
+
+        #player-transport button {
+            border-radius: 40%/100%;
+            padding: 5px 10px; /* Consistent button sizing */
+            font-size: 14px;
+        }
+
+        /* Audio element styling (optional) */
+        #audio {
+            flex: 1; /* Allow audio controls to take available space */
+            max-width: 300px; /* Optional: constrain width for balance */
+        }
+
+        /* Buttons (for sort-alpha, shuffle, reset) */
+        .buttons {
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        /* Right container (metadata panel) */
+        #metadata-panel {
+            flex: 0 0 40%; /* Fixed 40% width, no shrinking/growing */
+            max-width: 40%; /* Cap the width */
+            min-width: 300px; /* Minimum width before stacking */
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: transparent;
+        }
+        #cover-art img {
+            max-width: 100%;
+            height: auto;
+        }
+        #metadata-table {
+            width: 100%;
+            margin-top: 10px;
+            border-collapse: collapse;
+        }
+        #metadata-table td {
+            padding: 5px;
+            border: 1px solid #ddd;
+        }
+        /*#metadata-table tr:nth-child(even) {*/
+        /*    background-color: #f2f2f2;*/
+        /*}*/
+
+        /* Media query for narrow screens */
+        @media (max-width: 700px) {
+            #main-container {
+                flex-direction: column; /* Stack vertically */
+                flex-wrap: nowrap; /* Keep it stacked */
+            }
+            #left-container, #metadata-panel {
+                flex: 0 0 100%; /* Full width on narrow screens */
+                max-width: 100%; /* Ensure full width */
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+    <h1 style="text-align: center;">noEmbryo</h1>
+    <div id="main-container">
+        <!-- Left side: Playlist, player, and controls -->
+        <div id="left-container">
+            <!-- Scrollable playlist container -->
+            <div id="playlist-container">
+                <ul id="playlist"></ul>
+            </div>
+            <!-- Current track name display -->
+            <div id="track-display"></div>
+            <!-- Audio player with integrated transport controls -->
+            <div id="player-transport">
+                <button id="prev">Previous</button>
+                <audio id="audio" controls></audio>
+                <button id="next">Next</button>
+            </div>
+            <!-- Remaining buttons for sorting and reset -->
+            <div class="buttons">
+                <button id="sort-album">Sort by Album</button>
+                <button id="shuffle">Shuffle</button>
+                <button id="reset">Reset</button>
+            </div>
+        </div>
+        <!-- Right side: Metadata panel -->
+        <div id="metadata-panel">
+<!--            <h2>Track Metadata</h2>-->
+            <div id="cover-art"></div>
+            <table id="metadata-table"></table>
+        </div>
+    </div>
+
+    <script>
+        // Get DOM elements
+        const audio = document.getElementById('audio');
+        const trackDisplay = document.getElementById('track-display');
+        const prevButton = document.getElementById('prev');
+        const nextButton = document.getElementById('next');
+        const sortAlbumButton = document.getElementById('sort-album');
+        const shuffleButton = document.getElementById('shuffle');
+        const resetButton = document.getElementById('reset');
+        const playlistElement = document.getElementById('playlist');
+
+        let track_path = "stuff/audio/"
+        let image_path = "stuff/"
+        let track_names = [
+            "Abandon",
+            "Answered",
+            "Beat Two",
+            "Boringe",
+            "Brass Beat",
+            "Damian",
+            "Dawn",
+            "Deep",
+            "Echoes",
+            "Fallup",
+            "Glassoid",
+            "H+Over",
+            "Harpez",
+            "Kali",
+            "Kalinyxta",
+            "Krama",
+            "La Tenie",
+            "Memoire 2",
+            "Miles",
+            "Moon Dark",
+            "Nouvel V",
+            "Ooldies",
+            "Passing",
+            "Pianos",
+            "Porcelina",
+            "Ricochet",
+            "Saritan",
+            "Siren",
+            "Sissy",
+            "String Blocks",
+            "The G Waltz",
+            "Tracking",
+            "Trest",
+            "Virgo Waltz",
+            "X-Mass",
+            "YRU Dan"
+        ];
+        let originalPlaylist = track_names.map(item => track_path + item + ".mp3");
+
+
+        // Working copies and state
+        let playlist = [];
+        let trackNames = [];
+        let disabledTracks = new Set();
+        let trackMetadata = [];
+        let currentTrack = 0;
+        let isSortedByAlbum = false;
+        let useJsonMetadata = false; // Flag to indicate JSON usage
+
+        // Keyboard controls
+        document.addEventListener('keydown', (event) => {
+            // Only activate when not focused on input elements
+            if (event.target === document.body || (event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA')) {
+                switch (event.key) {
+                    case ' ': // Spacebar: Toggle play/pause
+                    case 'Spacebar':
+                        event.preventDefault();
+                        if (audio.paused) {
+                            audio.play();
+                        } else {
+                            audio.pause();
+                        }
+                        break;
+
+                    case 'ArrowUp': // Increase volume by 0.1
+                        event.preventDefault();
+                        audio.volume = Math.min(1, audio.volume + 0.1);
+                        break;
+
+                    case 'ArrowDown': // Decrease volume by 0.1
+                        event.preventDefault();
+                        audio.volume = Math.max(0, audio.volume - 0.1);
+                        break;
+
+                    case 'ArrowLeft': // Skip back 5 seconds or Previous track with Ctrl
+                        event.preventDefault();
+                        if (event.ctrlKey) {
+                            let prevIndex = currentTrack - 1;
+                            while (prevIndex >= 0 && disabledTracks.has(prevIndex)) {
+                                prevIndex--;
+                            }
+                            if (prevIndex >= 0) {
+                                setTrack(prevIndex);
+                                audio.play();
+                            }
+                        } else {
+                            audio.currentTime = Math.max(0, audio.currentTime - 5);
+                        }
+                        break;
+
+                    case 'ArrowRight': // Skip forward 5 seconds or Next track with Ctrl
+                        event.preventDefault();
+                        if (event.ctrlKey) {
+                            let nextIndex = currentTrack + 1;
+                            while (nextIndex < playlist.length && disabledTracks.has(nextIndex)) {
+                                nextIndex++;
+                            }
+                            if (nextIndex < playlist.length) {
+                                setTrack(nextIndex);
+                                audio.play();
+                            }
+                        } else {
+                            audio.currentTime = Math.min(audio.duration || Infinity, audio.currentTime + 5);
+                        }
+                        break;
+
+                    case 'Escape': // Stop: Pause and reset to start
+                        event.preventDefault();
+                        audio.pause();
+                        audio.currentTime = 0;
+                        break;
+                }
+            }
+        });
+
+        // Function to load metadata from player_metadata.json
+        async function loadMetadataFromJSON() {
+            try {
+                const response = await fetch('./player_metadata.json');
+                if (!response.ok) { // noinspection ExceptionCaughtLocallyJS
+                    throw new Error('JSON file not found');
+                }
+                const jsonData = await response.json();
+
+                track_names = jsonData.map(item => item.title);
+                trackMetadata = jsonData.map(item => ({
+                    url: track_path + item.title + ".mp3",
+                    title: item.title,
+                    album: item.album || '',
+                    trackNumber: parseInt(item.trackNumber, 10) || 0,
+                    year: parseInt(item.year, 10) || 0,
+                    picture: image_path + item.album + ".jpg"
+                }));
+                useJsonMetadata = true;
+                return true;
+            } catch (error) {
+                console.log('No player_metadata.json found or error loading it, falling back to MP3 scan:', error);
+                return false;
+            }
+        }
+
+        // Fetch metadata from MP3 files (fallback)
+        function fetchAllMetadataFromMP3(callback) {
+            let completed = 0;
+            trackMetadata = new Array(track_names.length);
+            // let temp_json_metadata = new Array(track_names.length);
+
+            track_names.forEach((title, index) => {
+                let url = track_path + title + ".mp3"
+                // noinspection JSUnresolvedReference
+                jsmediatags.read(url, {
+                    onSuccess: function(tag) {
+                        const tags = tag.tags;
+                        // noinspection JSUnresolvedReference
+                        const yearFromTDRC = tags.TDRC ? parseInt(tags.TDRC.data, 10) || 0 : 0;
+                        const yearFromYearTag = parseInt(tags.year || '0', 10) || 0;
+                        const year = yearFromTDRC || yearFromYearTag;
+
+
+                        trackMetadata[index] = {
+                            url: url,
+                            title: tags.title || track_names[index],
+                            album: tags.album || '',
+                            trackNumber: parseInt(tags.track || '0', 10) || 0,
+                            year: year,
+                            picture: image_path + tags.album + ".jpg"
+                        };
+                        // temp_json_metadata[index] = {
+                        //     title: tags.title || track_names[index],
+                        //     album: tags.album || '',
+                        //     trackNumber: parseInt(tags.track || '0', 10) || 0,
+                        //     year: year
+                        // };
+                        completed++;
+                        if (completed === track_names.length) {
+                            callback();
+                        }
+                    },
+                    onError: function(error) {
+                        console.error(`Error reading metadata for ${url}:`, error);
+                        trackMetadata[index] = {
+                            url: url,
+                            title: track_names[index],
+                            album: '',
+                            trackNumber: 0,
+                            year: 0
+                        };
+                        completed++;
+                        if (completed === track_names.length) {
+                            callback();
+                        }
+                    }
+                });
+            });
+            // console.log(trackMetadata);
+            // console.log(temp_json_metadata);
+        }
+
+        // Unified fetchAllMetadata function
+        function fetchAllMetadata(callback) {
+            loadMetadataFromJSON().then((success) => {
+                if (success) {
+                    // JSON loaded, initialize immediately
+                    playlist = [...originalPlaylist];
+                    trackNames = [...track_names];
+                    callback();
+                } else {
+                    // Fallback to MP3 scanning
+                    playlist = [...originalPlaylist];
+                    trackNames = [...track_names];
+                    fetchAllMetadataFromMP3(callback);
+                }
+            });
+        }
+
+        // Function to set the current track without playing
+        function setTrack(index) {
+            currentTrack = index;
+            audio.src = playlist[currentTrack]; // Set audio source
+            trackDisplay.textContent = trackNames[currentTrack]; // Update display
+
+            // Remove 'active' class from all playlist items
+            document.querySelectorAll('#playlist li').forEach(item => item.classList.remove('active'));
+
+            // Find the DOM element with matching playlist index and add 'active' class
+            // noinspection EqualityComparisonWithCoercionJS
+            const trackElement = Array.from(playlistElement.children).find(
+                item => item.dataset && item.dataset.index == currentTrack
+            );
+            if (trackElement) {
+                trackElement.classList.add('active');
+            }
+            updateMetadata(); // Update metadata panel
+        }
+
+        function updateMetadata() {
+            const currentUrl = playlist[currentTrack];
+            const coverArtElement = document.getElementById('cover-art');
+            const metadataTable = document.getElementById('metadata-table');
+
+            coverArtElement.innerHTML = '';
+            metadataTable.innerHTML = '';
+
+            if (useJsonMetadata) { // Use preloaded JSON metadata
+                const currentMeta = trackMetadata.find(meta => meta.url === currentUrl);
+                if (currentMeta) {
+                    if (currentMeta.picture) {
+                        const img = document.createElement('img');
+                        img.src = currentMeta.picture; // Use data URL or path from JSON
+                        coverArtElement.appendChild(img);
+                    }
+                    const metadata = [
+                        { label: 'Title', value: currentMeta.title },
+                        { label: 'Artist', value: currentMeta.artist },
+                        { label: 'Album', value: currentMeta.album },
+                        { label: 'Year', value: currentMeta.year ? currentMeta.year.toString() : '' },
+                        { label: 'Track Number', value: currentMeta.trackNumber ? currentMeta.trackNumber.toString() : '' },
+                        // { label: 'Genre', value: currentMeta.genre },
+                        { label: 'Comment', value: currentMeta.comment }
+                    ];
+                    metadata.forEach(item => {
+                        if (item.value) {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `<td>${item.label}</td><td>${item.value}</td>`;
+                            metadataTable.appendChild(row);
+                        }
+                    });
+                    if (metadataTable.rows.length === 0) {
+                        metadataTable.innerHTML = '<tr><td colspan="2">No metadata available</td></tr>';
+                    }
+                }
+            } else { // Scan MP3 file
+                // noinspection JSUnresolvedReference
+                jsmediatags.read(currentUrl, {
+                    onSuccess: function(tag) {
+                        const tags = tag.tags;
+                        if (tags.picture) {
+                            const picture = tags.picture;
+                            const base64String = btoa(
+                                String.fromCharCode.apply(null, picture.data)
+                            );
+                            const imgSrc = `data:${picture.format};base64,${base64String}`;
+                            const img = document.createElement('img');
+                            img.src = imgSrc;
+                            coverArtElement.appendChild(img);
+                        }
+                        // noinspection JSUnresolvedReference
+                        const yearFromTDRC = tags.TDRC ? parseInt(tags.TDRC.data, 10) || 0 : 0;
+                        const yearFromYearTag = parseInt(tags.year || '0', 10) || 0;
+                        const year = yearFromTDRC || yearFromYearTag;
+
+                        const metadata = [
+                            { label: 'Title', value: tags.title },
+                            { label: 'Artist', value: tags.artist },
+                            { label: 'Album', value: tags.album },
+                            { label: 'Year', value: year ? year.toString() : '' },
+                            { label: 'Track Number', value: tags.track },
+                            // { label: 'Genre', value: tags.genre },
+                            { label: 'Comment', value: tags.comment }
+                        ];
+                        metadata.forEach(item => {
+                            if (item.value) {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `<td>${item.label}</td><td>${item.value}</td>`;
+                                metadataTable.appendChild(row);
+                            }
+                        });
+                        if (metadataTable.rows.length === 0) {
+                            metadataTable.innerHTML = '<tr><td colspan="2">No metadata available</td></tr>';
+                        }
+                    },
+                    onError: function(error) {
+                        console.error('Error reading metadata:', error);
+                        metadataTable.innerHTML = '<tr><td colspan="2">Error reading metadata</td></tr>';
+                    }
+                });
+            }
+        }
+
+        function renderPlaylist() {
+            playlistElement.innerHTML = ''; // Clear current playlist
+            let lastAlbum = null;
+            let playableIndex = 0; // Tracks only playable tracks
+
+            // Group tracks by album to check year consistency
+            const tracksByAlbum = {};
+            trackNames.forEach((name, index) => {
+                const meta = trackMetadata.find(m => m.url === playlist[index]);
+                const album = meta?.album || '';
+                if (!tracksByAlbum[album]) {
+                    tracksByAlbum[album] = [];
+                }
+                tracksByAlbum[album].push({ name, index, year: meta?.year || 0 });
+            });
+
+            trackNames.forEach((name, index) => {
+                const currentTrackMeta = trackMetadata.find(meta => meta.url === playlist[index]);
+                const currentAlbum = currentTrackMeta?.album || '';
+                const currentUrl = playlist[index];
+
+                // Add separator before the track if it's the start of an album group
+                if (isSortedByAlbum && currentAlbum && (index === 0 || currentAlbum !== lastAlbum)) {
+                    const separator = document.createElement('li');
+                    separator.className = 'album-separator';
+
+                    // Check if all tracks on this album have the same year
+                    const albumTracks = tracksByAlbum[currentAlbum];
+                    const allSameYear = albumTracks.every(track => track.year === albumTracks[0].year && track.year !== 0);
+                    const albumYear = allSameYear ? albumTracks[0].year : 0;
+
+                    separator.textContent = albumYear ? `${currentAlbum} [${albumYear}]` : currentAlbum;
+                    playlistElement.appendChild(separator);
+                }
+
+                const li = document.createElement('li');
+                li.setAttribute('draggable', 'true');
+                // noinspection JSValidateTypes
+                li.dataset.index = index; // Original playlist index
+                // noinspection JSValidateTypes
+                li.dataset.playlistIndex = playableIndex; // Playable track index in DOM
+                playableIndex++; // Increment for next playable track
+
+                // Add checkbox for disabling tracks
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = !disabledTracks.has(currentUrl); // Use URL instead of index
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
+                        disabledTracks.delete(currentUrl);
+                        li.classList.remove('disabled');
+                    } else {
+                        disabledTracks.add(currentUrl);
+                        li.classList.add('disabled');
+                    }
+                });
+                li.appendChild(checkbox);
+
+                // Apply 'disabled' class if track is in disabledTracks
+                if (disabledTracks.has(index)) {
+                    li.classList.add('disabled');
+                }
+
+                // Add the track title in a clickable span
+                const trackSpan = document.createElement('span');
+                // Append year to track title if album tracks have different years
+                const albumTracks = tracksByAlbum[currentAlbum] || [];
+                const allSameYear = albumTracks.every(track => track.year === albumTracks[0].year && track.year !== 0);
+                // noinspection UnnecessaryLocalVariableJS
+                const displayName = (isSortedByAlbum && currentAlbum && !allSameYear && currentTrackMeta?.year)
+                    ? `${name} [${currentTrackMeta.year}]`
+                    : name;
+                trackSpan.textContent = displayName;
+
+                trackSpan.style.cursor = 'pointer'; // Optional: show it's clickable
+                trackSpan.setAttribute('role', 'button');
+                trackSpan.setAttribute('tabindex', '0');
+                trackSpan.addEventListener('click', () => {
+                    if (!disabledTracks.has(currentUrl)) { // Use URL instead of index
+                        if (index === currentTrack) {
+                            if (audio.paused) {
+                                audio.play();
+                            } else {
+                                audio.pause();
+                            }
+                        } else {
+                            setTrack(index);
+                            audio.play();
+                        }
+                    }
+                });
+
+                li.appendChild(trackSpan);
+
+                // Add drag and drop event listeners to the entire <li>
+                li.addEventListener('dragstart', handleDragStart);
+                li.addEventListener('dragover', handleDragOver);
+                li.addEventListener('drop', handleDrop);
+                li.addEventListener('dragend', handleDragEnd);
+
+                if (disabledTracks.has(currentUrl)) { // Use URL instead of index
+                    li.classList.add('disabled');
+                }
+
+                // Apply 'active' class if this is the current track
+                if (index === currentTrack) {
+                    li.classList.add('active');
+                }
+
+                playlistElement.appendChild(li);
+                lastAlbum = currentAlbum; // Update last album for next iteration
+            });
+        }
+
+        // Drag and Drop Functions
+        let draggedItem = null;
+
+        function handleDragStart(e) {
+            draggedItem = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+            this.style.opacity = '0.4';
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault(); // Necessary to allow drop
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDrop(_) {
+            if (draggedItem !== this) {
+                const draggedIndex = parseInt(draggedItem.dataset.index);
+                const targetIndex = parseInt(this.dataset.index);
+
+                // Remove the dragged item from its original position
+                const draggedTrackName = trackNames.splice(draggedIndex, 1)[0];
+                const draggedUrl = playlist.splice(draggedIndex, 1)[0];
+
+                // Insert the dragged item at the target position
+                trackNames.splice(targetIndex, 0, draggedTrackName);
+                playlist.splice(targetIndex, 0, draggedUrl);
+
+                // Update currentTrack if affected
+                if (draggedIndex === currentTrack) {
+                    currentTrack = targetIndex; // Dragged track was current, move it to target
+                } else if (draggedIndex < currentTrack && targetIndex >= currentTrack) {
+                    currentTrack--; // Dragged from before current, inserted after, shift current up
+                } else if (draggedIndex > currentTrack && targetIndex <= currentTrack) {
+                    currentTrack++; // Dragged from after current, inserted before, shift current down
+                }
+
+                isSortedByAlbum = false; // Disable album distinction after custom sort
+                renderPlaylist(); // Re-render the playlist
+            }
+            return false;
+        }
+
+        function handleDragEnd() {
+            this.style.opacity = '1';
+            draggedItem = null;
+        }
+
+        // Function to sort by album
+        function sortByAlbum() {
+            // Store the URL of the currently playing track from the pre-sort playlist
+            const currentPlayingUrl = playlist[currentTrack];
+
+            // Group tracks by album
+            const albums = {};
+            const noAlbumTracks = [];
+
+            trackMetadata.forEach((track, index) => {
+                if (track.album) {
+                    if (!albums[track.album]) {
+                        albums[track.album] = [];
+                    }
+                    albums[track.album].push({ ...track, originalIndex: index });
+                } else {
+                    noAlbumTracks.push({ ...track, originalIndex: index });
+                }
+            });
+
+            // Sort tracks within each album by track number
+            for (const album in albums) {
+                albums[album].sort((a, b) => a.trackNumber - b.trackNumber);
+            }
+
+            // Sort albums by year, then alphabetically
+            const sortedAlbums = Object.keys(albums).map(album => {
+                const year = albums[album][0].year;
+                return { name: album, tracks: albums[album], year };
+            }).sort((a, b) => {
+                if (a.year && b.year) return a.year - b.year;
+                if (a.year && !b.year) return -1;
+                if (!a.year && b.year) return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            // Sort no-album tracks alphabetically by title
+            noAlbumTracks.sort((a, b) => a.title.localeCompare(b.title));
+
+            // Rebuild playlist and trackNames
+            const newPlaylist = [];
+            const newTrackNames = [];
+            sortedAlbums.forEach(album => {
+                album.tracks.forEach(track => {
+                    newPlaylist.push(track.url);
+                    newTrackNames.push(track.title);
+                });
+            });
+            noAlbumTracks.forEach(track => {
+                newPlaylist.push(track.url);
+                newTrackNames.push(track.title);
+            });
+
+            // Update working arrays and currentTrack
+            playlist = newPlaylist;
+            trackNames = newTrackNames;
+            currentTrack = playlist.indexOf(currentPlayingUrl);
+            if (currentTrack === -1) {
+                console.error('Could not find current playing URL after sort:', currentPlayingUrl);
+                currentTrack = 0; // Fallback to first track if lost
+            }
+            isSortedByAlbum = true; // Enable album distinction
+            renderPlaylist();
+        }
+
+        // Function to shuffle playlist
+        function shufflePlaylist() {
+            // Store the URL of the currently playing track
+            const currentUrl = playlist[currentTrack];
+
+            // Combine track names and URLs, then shuffle
+            const combined = trackNames.map((name, index) => ({ name, url: playlist[index] }));
+            for (let i = combined.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [combined[i], combined[j]] = [combined[j], combined[i]];
+            }
+            trackNames = combined.map(item => item.name);
+            playlist = combined.map(item => item.url);
+
+            // Update currentTrack to the new index of the playing track
+            currentTrack = playlist.indexOf(currentUrl);
+            isSortedByAlbum = false; // Disable album distinction
+            renderPlaylist(); // Re-render the playlist with the updated currentTrack
+        }
+
+        // Function to reset to original playlist
+        function resetPlaylist() {
+            playlist = [...originalPlaylist];
+            trackNames = [...track_names];
+            disabledTracks.clear();
+            isSortedByAlbum = false; // Disable album distinction
+            renderPlaylist();
+            setTrack(0);
+        }
+
+        // Initial load: Fetch metadata then initialize
+        fetchAllMetadata(() => {
+            // renderPlaylist();
+            sortByAlbum();
+            setTrack(0);
+        });
+
+        // Button event listeners
+        sortAlbumButton.addEventListener('click', sortByAlbum);
+        shuffleButton.addEventListener('click', shufflePlaylist);
+        resetButton.addEventListener('click', resetPlaylist);
+
+        nextButton.addEventListener('click', () => {
+            let nextIndex = currentTrack + 1;
+            while (nextIndex < playlist.length && disabledTracks.has(nextIndex)) {
+                nextIndex++;
+            }
+            if (nextIndex < playlist.length) {
+                setTrack(nextIndex);
+                audio.play();
+            }
+        });
+
+        prevButton.addEventListener('click', () => {
+            let prevIndex = currentTrack - 1;
+            while (prevIndex >= 0 && disabledTracks.has(prevIndex)) {
+                prevIndex--;
+            }
+            if (prevIndex >= 0) {
+                setTrack(prevIndex);
+                audio.play();
+            }
+        });
+
+        // When a track ends, play the next enabled track
+        audio.addEventListener('ended', () => {
+            let nextIndex = currentTrack + 1;
+            while (nextIndex < playlist.length && disabledTracks.has(nextIndex)) {
+                nextIndex++;
+            }
+            if (nextIndex < playlist.length) {
+                setTrack(nextIndex);
+                audio.play();
+            } else {
+                audio.pause(); // Stop at the end of the playlist
+            }
+        });
+    </script>
+</body>
+</html>
