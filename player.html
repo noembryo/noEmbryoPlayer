@@ -199,8 +199,10 @@
         const resetButton = document.getElementById('reset');
         const playlistElement = document.getElementById('playlist');
 
-        let track_path = "stuff/audio/"
-        let image_path = "stuff/"
+        // let track_path = "https://noembryo.github.io/noEmbryoPlayer/audio/"
+        // let image_path = "https://noembryo.github.io/noEmbryoPlayer/images/"
+        let track_path = "docs/audio/"
+        let image_path = "docs/images/"
         let track_names = [
             "Abandon",
             "Answered",
@@ -333,7 +335,7 @@
                     album: item.album || '',
                     trackNumber: parseInt(item.trackNumber, 10) || 0,
                     year: parseInt(item.year, 10) || 0,
-                    picture: image_path + item.album + ".jpg"
+                    picture: image_path + item.album + ".png"
                 }));
                 useJsonMetadata = true;
                 return true;
@@ -367,7 +369,7 @@
                             album: tags.album || '',
                             trackNumber: parseInt(tags.track || '0', 10) || 0,
                             year: year,
-                            picture: image_path + tags.album + ".jpg"
+                            picture: image_path + tags.album + ".png"
                         };
                         // temp_json_metadata[index] = {
                         //     title: tags.title || track_names[index],
