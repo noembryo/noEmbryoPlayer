@@ -88,9 +88,9 @@ let Area =
             };
             downloadingImage.src = _img_path + "noembryo.png";
             this.embryo.src = _img_path + "noembryo.png";
-            this.covers[0].src = _img_path + "Glasses.jpg";
-            this.covers[1].src = _img_path + "Angular Blur.jpg";
-            this.covers[2].src = _img_path + "Sole Adjustment.jpg";
+            this.covers[0].src = _img_path + "Glasses.png";
+            this.covers[1].src = _img_path + "Angular Blur.png";
+            this.covers[2].src = _img_path + "Sole Adjustment.png";
             this.basics();
         },
 
@@ -327,10 +327,15 @@ function Singer(id) {   // Singer object constructor
     this.body.style.position = "absolute";
     this.body.style.width = 2.2 * _radius + "px";
     this.body.style.height = 2.2 * _radius + "px";
-    this.body.onmousedown = setCurrent;
+    this.body.onmousedown = dragDrop.startDragMouse;
+    this.body.onclick = function() {
+        if (!dragDrop.wasDragged) {
+            setCurrent.call(this);
+        }
+        dragDrop.wasDragged = false; // Reset flag after handling
+    };
     this.body.appendChild(this.canvas);
     document.body.appendChild(this.body);
-    //dragDrop.initElement(this.body.id);
     this.cx = this.body.offsetLeft + _radius * 1.1;
     this.cy = this.body.offsetTop + _radius * 1.1;
 
@@ -386,9 +391,10 @@ function Singer(id) {   // Singer object constructor
     };
 
     this.update = function () {
-        //if (this.body.className !== "dragged")
-        this.checkBounds();
-        this.updateMotion();
+        if (this.body.className !== "dragged") {
+            this.checkBounds();
+            this.updateMotion();
+        }
     };
 
     this.checkBounds = function () {
@@ -479,6 +485,7 @@ let dragDrop =
         startX: undefined,
         startY: undefined,
         draggedObject: undefined,
+        wasDragged: false,
 
         initElement: function (element) {
             if (typeof element == 'string')
@@ -486,7 +493,8 @@ let dragDrop =
             element.onmousedown = dragDrop.startDragMouse;
         },
         startDragMouse: function (e) {
-            if (_currSinger || this.id === "volbar") {
+            if (!isNaN(parseInt(this.id)) || this.id === "volbar"
+                || (this.id === "probar" && _currSinger)) {
                 dragDrop.startDrag(this);
                 let evt = e || window.event;
                 dragDrop.initialMouseX = evt.clientX;
@@ -512,21 +520,41 @@ let dragDrop =
             return false;
         },
         setPosition: function (dx, dy) {
-            if (dragDrop.draggedObject.id !== "volbar")
-                dragDrop.draggedObject.style.left = dragDrop.startX + dx + 'px';
-            else if (dragDrop.draggedObject.id !== "probar")
-                dragDrop.draggedObject.style.top = dragDrop.startY + dy + 'px';
+            if (dragDrop.draggedObject.id === "volbar") {
+              dragDrop.draggedObject.style.top = dragDrop.startY + dy + 'px';
+            } else if (dragDrop.draggedObject.id === "probar") {
+              dragDrop.draggedObject.style.left = dragDrop.startX + dx + 'px';
+            } else {
+              // For singer balls
+              dragDrop.draggedObject.style.left = dragDrop.startX + dx + 'px';
+              dragDrop.draggedObject.style.top = dragDrop.startY + dy + 'px';
+            }
         },
-        releaseElement: function () {
+        releaseElement: function (e) {
+            let evt = e || window.event;
+            let dx = evt.clientX - dragDrop.initialMouseX;
+            let dy = evt.clientY - dragDrop.initialMouseY;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            dragDrop.wasDragged = distance > 5;
+
+            // Remove drag event listeners
             removeEventSimple(document, 'mousemove', dragDrop.dragMouse);
             removeEventSimple(document, 'mouseup', dragDrop.releaseElement);
-            //_singers[dragDrop.draggedObject.id].move();
-            //console.log(dragDrop.draggedObject.singer);
-            //dragDrop.draggedObject.singer.set();
             dragDrop.draggedObject.className =
-                dragDrop.draggedObject.className.replace(/dragged/, '');
+              dragDrop.draggedObject.className.replace(/dragged/, '');
+
+            // Update the ball’s position and velocity
+            if (dragDrop.draggedObject.singer) {
+              dragDrop.draggedObject.singer.cx = dragDrop.draggedObject.offsetLeft + _radius * 1.1;
+              dragDrop.draggedObject.singer.cy = dragDrop.draggedObject.offsetTop + _radius * 1.1;
+              if (dragDrop.wasDragged) {
+                // Set velocity based on drag distance only if it was dragged
+                dragDrop.draggedObject.singer.vx = dx * 0.1;
+                dragDrop.draggedObject.singer.vy = dy * 0.1;
+              }
+            }
+
             dragDrop.draggedObject = null;
-            //setTimeout(setList, 100);
         }
     };
 
