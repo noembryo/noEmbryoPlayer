@@ -43,10 +43,10 @@ const _ballFont = _fontHeight + "px tahoma";
 const _barFont = _fontHeight + 2 + "px tahoma";
 const _titleFont = _fontHeight * 2 + "px tahoma";
 
-// let _music_path = "https://noembryo.github.io/noEmbryoPlayer/audio/";
-// let _img_path = "https://noembryo.github.io/noEmbryoPlayer/images/";
-let _music_path = "docs/audio/";
-let _img_path = "docs/images/";
+let _music_path = "https://noembryo.github.io/noEmbryoPlayer/audio/";
+let _img_path = "https://noembryo.github.io/noEmbryoPlayer/images/";
+// let _music_path = "docs/audio/";
+// let _img_path = "docs/images/";
 
 let _globalPlayer = document.createElement("audio");
 _globalPlayer.setAttribute("crossorigin", "anonymous");
@@ -214,6 +214,7 @@ let Volume =
         body: document.createElement("div"),
 
         make: function () {
+            // noinspection JSUnresolvedReference
             window.AudioContext = window.AudioContext || window.webkitAudioContext
                 || window.mozAudioContext || window.msAudioContext;
             try {
@@ -496,6 +497,7 @@ let dragDrop =
             if (!isNaN(parseInt(this.id)) || this.id === "volbar"
                 || (this.id === "probar" && _currSinger)) {
                 dragDrop.startDrag(this);
+                // noinspection JSDeprecatedSymbols
                 let evt = e || window.event;
                 dragDrop.initialMouseX = evt.clientX;
                 dragDrop.initialMouseY = evt.clientY;
@@ -513,6 +515,7 @@ let dragDrop =
             obj.className += 'dragged';
         },
         dragMouse: function (e) {
+            // noinspection JSDeprecatedSymbols
             let evt = e || window.event;
             let dX = evt.clientX - dragDrop.initialMouseX;
             let dY = evt.clientY - dragDrop.initialMouseY;
@@ -531,6 +534,7 @@ let dragDrop =
             }
         },
         releaseElement: function (e) {
+            // noinspection JSDeprecatedSymbols
             let evt = e || window.event;
             let dx = evt.clientX - dragDrop.initialMouseX;
             let dy = evt.clientY - dragDrop.initialMouseY;
@@ -614,7 +618,9 @@ function playControl(stop) {
         _globalPlayer.pause();
         _globalPlayer.currentTime = 0;
     } else if (_globalPlayer.paused) {
-        _globalPlayer.play();
+        _globalPlayer.play().then(_ => {
+            console.log(`Playing "${_currSinger.title}"`);
+        });
     } else {
         _globalPlayer.pause();
     }
@@ -644,13 +650,34 @@ function setCurrent() {
     singer.toggleSelect();
     _currSinger = singer;
 
+    // Resume AudioContext if suspended
+    if (Volume.audioCtx.state === 'suspended') {
+        Volume.audioCtx.resume().then(() => {
+            console.log('AudioContext resumed');
+        });
+    }
+
     _globalPlayer.src = _music_path + singer.title + ".mp3";
     _globalPlayer.load(); // Ensure the new source is loaded
+
+    // Try to play immediately within the click handler
+    let playPromise = _globalPlayer.play();
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            console.log(`Autoplay started, playing "${_currSinger.title}"`);
+        }).catch(error => {
+            console.log('Autoplay failed:', error);
+            // Fallback: play when audio is ready
+            _globalPlayer.oncanplaythrough = function() {
+                _globalPlayer.play().then(_ => {
+                    console.log(`Playing "${_currSinger.title}"`);
+                });
+                _globalPlayer.oncanplaythrough = null; // Prevent multiple triggers
+            };
+        });
+    }
+
     _globalPlayer.onended = skip; // When track ends, call skip
-    _globalPlayer.oncanplaythrough = function() {
-        _globalPlayer.play();
-        _globalPlayer.oncanplaythrough = null; // Reset to avoid repeated triggers
-    };
     _cover = singer.cover;
     _list.splice(_list.indexOf(singer), 1);
     _list.push(singer);
