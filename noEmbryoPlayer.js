@@ -24,7 +24,7 @@ let _launchPoint;
 let _currSinger;
 let _loop;
 let _touchTimer;
-let _proflag = false;
+let _proFlag = false;
 let _proDragged = false;
 let _volDragged = false;
 let _volume = 1;
@@ -45,10 +45,10 @@ const _ballFont = _fontHeight + "px tahoma";
 const _barFont = _fontHeight + 2 + "px tahoma";
 const _titleFont = _fontHeight * 2 + "px tahoma";
 
-const _music_path = "https://noembryo.github.io/noEmbryoPlayer/audio/";
-const _img_path = "https://noembryo.github.io/noEmbryoPlayer/images/";
-// const _music_path = "docs/audio/";
-// const _img_path = "docs/images/";
+const _musicPath = "https://noembryo.github.io/noEmbryoPlayer/audio/";
+const _imgPath = "https://noembryo.github.io/noEmbryoPlayer/images/";
+// const _musicPath = "docs/audio/";
+// const _imgPath = "docs/images/";
 const helpButton = document.createElement("button");
 const helpText = document.createElement("div");
 
@@ -59,7 +59,7 @@ const helpText = document.createElement("div");
 let Area =
     {
         canvas: document.createElement("canvas"),
-        embryo: document.createElement("img"), // 8000ff
+        noEmbryo: document.createElement("img"), // 8000ff
         covers: [document.createElement("img"),
             document.createElement("img"),
             document.createElement("img")],
@@ -84,14 +84,14 @@ let Area =
             let that = this
             let downloadingImage = new Image();
             downloadingImage.onload = function () {
-                that.embryo.src = this.src;
+                that.noEmbryo.src = this.src;
                 that.basics();
             };
-            downloadingImage.src = _img_path + "noembryo.png";
-            this.embryo.src = _img_path + "noembryo.png";
-            this.covers[0].src = _img_path + "Glasses.png";
-            this.covers[1].src = _img_path + "Angular Blur.png";
-            this.covers[2].src = _img_path + "Sole Adjustment.png";
+            downloadingImage.src = _imgPath + "noembryo.png";
+            this.noEmbryo.src = _imgPath + "noembryo.png";
+            this.covers[0].src = _imgPath + "Glasses.png";
+            this.covers[1].src = _imgPath + "Angular Blur.png";
+            this.covers[2].src = _imgPath + "Sole Adjustment.png";
             this.basics();
         },
 
@@ -100,7 +100,7 @@ let Area =
             this.ctx.beginPath();
             this.ctx.arc(_logoCenter.cx, _logoCenter.cy, _logoRadius, 0, 2 * Math.PI);
             this.ctx.stroke();
-            this.ctx.drawImage(this.embryo, _logoCenter.cx - _logoRadius * .65,
+            this.ctx.drawImage(this.noEmbryo, _logoCenter.cx - _logoRadius * .65,
                 _logoCenter.cy - _logoRadius * .65,
                 _logoRadius * 1.3, _logoRadius * 1.3);
         },
@@ -113,23 +113,6 @@ let Area =
                     * .6 - _logoRadius, _logoRadius * 2, _logoRadius * 2);
             }
         },
-
-        // help: function () {
-        //     let _message1 = "While touching, move over a piece to cross it out of the list.  "
-        //         + "Touch on a piece to play it, pause it or put it back in the list.";
-        //     let _message2 = "Also, use the Space key to play and pause.  Use the Arrow keys to "
-        //         + "change the volume and seek (or skip if paused).";
-        //     this.ctx.fillStyle = 'grey';
-        //     this.ctx.save();
-        //     this.ctx.globalAlpha = .1;
-        //     this.ctx.fillRect(0, _height * .58, _width, _height * .08);
-        //     this.ctx.restore();
-        //     this.ctx.fillText(_message1, _width * .5, _height * .59);
-        //     this.ctx.fillText(_message2, _width * .5, _height * .62);
-        //     _helped = true;
-        //     // setTimeout(this.update, 20000)
-        //     setTimeout(this.update.bind(this), 20000);
-        // }
     };
 
 
@@ -138,79 +121,73 @@ function canvasMouseDown() {
 }
 
 function canvasMouseUp() {
-    clearTimeout(_touchTimer);
     if (helpText.style.display === "block")
         helpText.style.display = "none";
-    // if (_touchTimer) {
-    //     clearTimeout(_touchTimer);
-    //     if (_helped) {
-    //         _helped = false;
-    //         Area.update();
-    //     } else
-    //         Area.help();
-    // }
+    if (_touchTimer) {
+        clearTimeout(_touchTimer);
+    }
 }
 
 let Progress =
     {
-        barcanvas: document.createElement("canvas"),
-        numcanvas: document.createElement("canvas"),
-        barbody: document.createElement("div"),
-        numbody: document.createElement("div"),
+        barCanvas: document.createElement("canvas"),
+        numCanvas: document.createElement("canvas"),
+        barBody: document.createElement("div"),
+        numBody: document.createElement("div"),
 
         make: function () {
-            this.barcanvas.id = "probarcanvas";
-            this.barcanvas.width = _width * .02;
-            this.barcanvas.height = _height;
-            this.barctx = this.barcanvas.getContext("2d");
+            this.barCanvas.id = "probarcanvas";
+            this.barCanvas.width = _width * .02;
+            this.barCanvas.height = _height;
+            this.barctx = this.barCanvas.getContext("2d");
             this.barctx.strokeStyle = _barColor;
             this.barctx.lineWidth = _radius * .05;
-            this.barctx.moveTo(this.barcanvas.width * .5, 0);
-            this.barctx.lineTo(this.barcanvas.width * .5, _height);
+            this.barctx.moveTo(this.barCanvas.width * .5, 0);
+            this.barctx.lineTo(this.barCanvas.width * .5, _height);
             this.barctx.stroke();
-            this.barbody.id = "probar";
-            this.barbody.style.position = "absolute";
-            this.barbody.style.width = _width * .02 + "px";
-            this.barbody.style.height = _height + "px";
-            this.barbody.style.left = -_width * .01 + "px";
-            this.barbody.style.top = 0 + "px";
-            this.barbody.appendChild(this.barcanvas);
-            document.body.appendChild(this.barbody);
-            dragDrop.initElement(this.barbody.id);
+            this.barBody.id = "probar";
+            this.barBody.style.position = "absolute";
+            this.barBody.style.width = _width * .02 + "px";
+            this.barBody.style.height = _height + "px";
+            this.barBody.style.left = -_width * .01 + "px";
+            this.barBody.style.top = 0 + "px";
+            this.barBody.appendChild(this.barCanvas);
+            document.body.appendChild(this.barBody);
+            dragDrop.initElement(this.barBody.id);
 
-            this.numcanvas.id = "pronumcanvas";
-            this.numcanvas.width = _width * .08;
-            this.numcanvas.height = _height * .03;
-            this.numctx = this.numcanvas.getContext("2d");
-            //this.numctx.translate(0.5, 0.5); //for aa?
-            this.numctx.font = _barFont;
-            this.numctx.textBaseline = "top";
-            this.numctx.textAlign = "center";
-            this.numctx.fillStyle = _txtColor;
-            this.numbody.id = "pronum";
-            this.numbody.style.position = "absolute";
-            this.numbody.style.width = _width * .08 + "px";
-            this.numbody.style.height = _height * .03 + "px";
-            this.numbody.style.left = -_width * .03 + "px";
-            this.numbody.style.top = _height * .95 + "px";
-            this.numbody.appendChild(this.numcanvas);
-            document.body.appendChild(this.numbody);
+            this.numCanvas.id = "pronumcanvas";
+            this.numCanvas.width = _width * .08;
+            this.numCanvas.height = _height * .03;
+            this.numCtx = this.numCanvas.getContext("2d");
+            //this.numCtx.translate(0.5, 0.5); //for aa?
+            this.numCtx.font = _barFont;
+            this.numCtx.textBaseline = "top";
+            this.numCtx.textAlign = "center";
+            this.numCtx.fillStyle = _txtColor;
+            this.numBody.id = "pronum";
+            this.numBody.style.position = "absolute";
+            this.numBody.style.width = _width * .08 + "px";
+            this.numBody.style.height = _height * .03 + "px";
+            this.numBody.style.left = -_width * .03 + "px";
+            this.numBody.style.top = _height * .95 + "px";
+            this.numBody.appendChild(this.numCanvas);
+            document.body.appendChild(this.numBody);
         },
 
         update: function () {
-            this.barbody.style.left = String(Math.round(_width * .97
+            this.barBody.style.left = String(Math.round(_width * .97
                 * _globalPlayer.currentTime / _globalPlayer.duration) + "px");
-            this.numbody.style.left = this.barbody.offsetLeft + this.barcanvas.width * .5
-                - this.numcanvas.width * .5 + "px";
+            this.numBody.style.left = this.barBody.offsetLeft + this.barCanvas.width * .5
+                - this.numCanvas.width * .5 + "px";
             _remainTime = _globalPlayer.duration - _globalPlayer.currentTime;
             _elMin = Math.floor(_globalPlayer.currentTime / 60);
             _elSec = Math.floor(_globalPlayer.currentTime % 60);
             _reMin = Math.floor(_remainTime / 60);
             _reSec = Math.floor(_remainTime % 60);
-            this.numctx.clearRect(0, 0, _width, _height);
-            this.numctx.fillText(String(_elMin) + this.fix(_elSec) + String(_elSec)
+            this.numCtx.clearRect(0, 0, _width, _height);
+            this.numCtx.fillText(String(_elMin) + this.fix(_elSec) + String(_elSec)
                 + "    " + String(_reMin) + this.fix(_reSec) + String(_reSec),
-                this.numcanvas.width * .5, this.numcanvas.height * .3);
+                this.numCanvas.width * .5, this.numCanvas.height * .3);
         },
 
         fix: function (sec) {
@@ -221,10 +198,10 @@ let Progress =
         },
 
         set: function () {
-            if (this.barbody.offsetLeft < -_width * .02) this.barbody.style.left = -_width * .02 + "px";
-            else if (this.barbody.offsetLeft > _width * 1.02) this.barbody.style.left = _width * 1.02 + "px";
-            _globalPlayer.currentTime = _globalPlayer.duration * this.barbody.offsetLeft / _width;
-            if (_globalPlayer.paused) playControl();
+            if (this.barBody.offsetLeft < -_width * .02) this.barBody.style.left = -_width * .02 + "px";
+            else if (this.barBody.offsetLeft > _width * 1.02) this.barBody.style.left = _width * 1.02 + "px";
+            _globalPlayer.currentTime = _globalPlayer.duration * this.barBody.offsetLeft / _width;
+            // if (_globalPlayer.paused) playControl();
         }
     };
 
@@ -476,7 +453,7 @@ function createHelpButton() {
     helpButton.style.height = "40px"; // Match your image’s height
     helpButton.style.borderRadius = "50%"; // Keeps it round if the image has transparency
     helpButton.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
-    helpButton.style.backgroundImage = `url('${_img_path}help_btn.png')`; // Path to your image
+    helpButton.style.backgroundImage = `url('${_imgPath}help_btn.png')`; // Path to your image
     helpButton.style.backgroundSize = "cover"; // Ensures the image fills the button
     helpButton.style.backgroundPosition = "center"; // Centers the image
     helpButton.style.border = "none"; // No border, assuming the image defines it
@@ -698,7 +675,7 @@ function populate() {
     // _ids_list.sort(() => Math.random() - 0.5); // shuffle
     // _ids_list.sort((a, b) => a.title.localeCompare(b.title)); // Sort by title
 
-    console.log(_ids_list);
+    // console.log(_ids_list);
     _ids_list.forEach(idx => create_singer(idx));
 }
 
@@ -773,7 +750,7 @@ function setCurrent() {
         });
     }
 
-    _globalPlayer.src = _music_path + singer.title + ".mp3";
+    _globalPlayer.src = _musicPath + singer.title + ".mp3";
     _globalPlayer.load(); // Ensure the new source is loaded
 
     // Try to play immediately within the click handler
@@ -830,8 +807,8 @@ function exclude() {
 // # ___ ___________________  EVENTS  _______________________________
 
 function embryoLoop() {
-    let i, j, singer, other, dx, dy, dist, mindist, pointofcontactx,
-        pointofcontacty, coursecorrectionx, coursecorrectiony;
+    let i, j, singer, other, dx, dy, dist, minDist, pointOfContactX,
+        pointOfContactY, courseCorrectionX, courseCorrectionY;
     let l = _singers.length;
 
     for (i = 0; i < l; i++) {
@@ -846,15 +823,15 @@ function embryoLoop() {
             dx = other.cx - singer.cx;
             dy = other.cy - singer.cy;
             dist = Math.sqrt(dx * dx + dy * dy);
-            mindist = _radius * 2; // Assuming _radius is the ball radius
+            minDist = _radius * 2; // Assuming _radius is the ball radius
 
             // Check for collision
-            if (dist < mindist) {
+            if (dist < minDist) {
                 // Calculate point of contact and correction vector
-                pointofcontactx = singer.cx + (dx / dist) * mindist;
-                pointofcontacty = singer.cy + (dy / dist) * mindist;
-                coursecorrectionx = pointofcontactx - other.cx;
-                coursecorrectiony = pointofcontacty - other.cy;
+                pointOfContactX = singer.cx + (dx / dist) * minDist;
+                pointOfContactY = singer.cy + (dy / dist) * minDist;
+                courseCorrectionX = pointOfContactX - other.cx;
+                courseCorrectionY = pointOfContactY - other.cy;
 
                 // Handle collision based on ball states
                 if (singer.isStopped() && other.isStopped()) {
@@ -862,31 +839,31 @@ function embryoLoop() {
                     // continue;
                 } else if (singer.isStopped()) {
                     // Singer stopped, other moving: bounce other off singer
-                    other.vx += coursecorrectionx * 2;
-                    other.vy += coursecorrectiony * 2;
+                    other.vx += courseCorrectionX * 2;
+                    other.vy += courseCorrectionY * 2;
                 } else if (other.isStopped()) {
                     // Other stopped, singer moving: bounce singer off other
-                    singer.vx -= coursecorrectionx * 2;
-                    singer.vy -= coursecorrectiony * 2;
+                    singer.vx -= courseCorrectionX * 2;
+                    singer.vy -= courseCorrectionY * 2;
                 } else {
                     // Both moving: bounce both off each other
-                    singer.vx -= coursecorrectionx;
-                    singer.vy -= coursecorrectiony;
-                    other.vx += coursecorrectionx;
-                    other.vy += coursecorrectiony;
+                    singer.vx -= courseCorrectionX;
+                    singer.vy -= courseCorrectionY;
+                    other.vx += courseCorrectionX;
+                    other.vy += courseCorrectionY;
                 }
             }
         }
         singer.update(); // Update position based on velocity
     }
 
-    if (_proDragged || Progress.barbody.className === "dragged") {
-            Progress.numbody.style.visibility = "hidden";
-            _proflag = true;
-        } else if (_proflag) {
-            _proflag = false;
+    if (_proDragged || Progress.barBody.className === "dragged") {
+            Progress.numBody.style.visibility = "hidden";
+            _proFlag = true;
+        } else if (_proFlag) {
+            _proFlag = false;
             Progress.set();
-            Progress.numbody.style.visibility = "visible";
+            Progress.numBody.style.visibility = "visible";
         } else if (_currSinger && !_globalPlayer.paused)
             Progress.update();
 
@@ -916,19 +893,17 @@ function keyStart(evt) {
         }
     } else if (_currSinger) {
         if (keycode === "ArrowRight" || keycode === 39) {
-            // if (_globalPlayer.paused) skip();
             if (evt.ctrlKey) skip();
             else if (_globalPlayer.currentTime < _globalPlayer.duration) {
                 _proDragged = true;
-                Progress.barbody.style.left = Progress.barbody.offsetLeft + 50 + "px";
+                Progress.barBody.style.left = Progress.barBody.offsetLeft + 50 + "px";
             }
             evt.preventDefault();
         } else if (keycode === "ArrowLeft" || keycode === 37) {
-            // if (_globalPlayer.paused) skip(true);
             if (evt.ctrlKey) skip(true);
             else if (_globalPlayer.currentTime > 0) {
                 _proDragged = true;
-                Progress.barbody.style.left = Progress.barbody.offsetLeft - 30 + "px";
+                Progress.barBody.style.left = Progress.barBody.offsetLeft - 30 + "px";
             }
             evt.preventDefault();
         } else if (keycode === " " || keycode === 32) {
@@ -963,13 +938,13 @@ function keyEnd(evt) {
 function addEventSimple(obj, evt, fn) {
     if (obj.addEventListener)
         obj.addEventListener(evt, fn, false);
-    else if (obj.attachEvent)
-        obj.attachEvent('on' + evt, fn);
+    // else if (obj.attachEvent) // for older Internet Explorer
+    //     obj.attachEvent('on' + evt, fn);
 }
 
 function removeEventSimple(obj, evt, fn) {
     if (obj.removeEventListener)
         obj.removeEventListener(evt, fn, false);
-    else if (obj.detachEvent)
-        obj.detachEvent('on' + evt, fn);
+    // else if (obj.detachEvent) // for older Internet Explorer
+    //     obj.detachEvent('on' + evt, fn);
 }
