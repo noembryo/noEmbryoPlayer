@@ -10,7 +10,6 @@ let _titles = ["Glassoid", "Saritan",
 // ^^^ SAME LENGTH & ORDER AS THE ABOVE !!! ^^^
 let _albums = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]; // RESPECTIVE ALBUM NUMBERS
-
 let _width = document.documentElement.clientWidth;
 let _height = document.documentElement.clientHeight;
 let _cover;
@@ -25,11 +24,14 @@ let _launchPoint;
 let _currSinger;
 let _loop;
 let _touchTimer;
-let _helped = false;
 let _proflag = false;
 let _proDragged = false;
 let _volDragged = false;
 let _volume = 1;
+let _globalPlayer = document.createElement("audio");
+_globalPlayer.setAttribute("crossorigin", "anonymous");
+// _globalPlayer.setAttribute("preload", "auto");
+
 const _offColor = "#400082";
 const _onColor = "#a47bff"; // 9869ff
 const _barColor = "#6c00d3"; // 5500aa, 2f0c53
@@ -43,14 +45,13 @@ const _ballFont = _fontHeight + "px tahoma";
 const _barFont = _fontHeight + 2 + "px tahoma";
 const _titleFont = _fontHeight * 2 + "px tahoma";
 
-// let _music_path = "https://noembryo.github.io/noEmbryoPlayer/audio/";
-// let _img_path = "https://noembryo.github.io/noEmbryoPlayer/images/";
-let _music_path = "docs/audio/";
-let _img_path = "docs/images/";
+// const _music_path = "https://noembryo.github.io/noEmbryoPlayer/audio/";
+// const _img_path = "https://noembryo.github.io/noEmbryoPlayer/images/";
+const _music_path = "docs/audio/";
+const _img_path = "docs/images/";
+const helpButton = document.createElement("button");
+const helpText = document.createElement("div");
 
-let _globalPlayer = document.createElement("audio");
-_globalPlayer.setAttribute("crossorigin", "anonymous");
-// _globalPlayer.setAttribute("preload", "auto");
 
 
 // # ___ ___________________  OBJECTS  ______________________________
@@ -67,10 +68,10 @@ let Area =
             this.canvas.width = _width;
             this.canvas.height = _height;
             this.canvas.onmousedown = function (evt) {
-                canvasTouch(evt)
+                canvasMouseDown(evt)
             };
             this.canvas.onmouseup = function (evt) {
-                // canvasLet(evt)
+                canvasMouseUp(evt)
             };
             document.body.insertBefore(this.canvas, document.body.childNodes[0]);
             this.ctx = this.canvas.getContext("2d");
@@ -113,23 +114,41 @@ let Area =
             }
         },
 
-        help: function () {
-            let _message1 = "While touching, move over a piece to cross it out of the list.  "
-                + "Touch on a piece to play it, pause it or put it back in the list.";
-            let _message2 = "Also, use the Space key to play and pause.  Use the Arrow keys to "
-                + "change the volume and seek (or skip if paused).";
-            this.ctx.fillStyle = 'grey';
-            this.ctx.save();
-            this.ctx.globalAlpha = .1;
-            this.ctx.fillRect(0, _height * .58, _width, _height * .08);
-            this.ctx.restore();
-            this.ctx.fillText(_message1, _width * .5, _height * .59);
-            this.ctx.fillText(_message2, _width * .5, _height * .62);
-            _helped = true;
-            // setTimeout(this.update, 20000)
-            setTimeout(this.update.bind(this), 20000);
-        }
+        // help: function () {
+        //     let _message1 = "While touching, move over a piece to cross it out of the list.  "
+        //         + "Touch on a piece to play it, pause it or put it back in the list.";
+        //     let _message2 = "Also, use the Space key to play and pause.  Use the Arrow keys to "
+        //         + "change the volume and seek (or skip if paused).";
+        //     this.ctx.fillStyle = 'grey';
+        //     this.ctx.save();
+        //     this.ctx.globalAlpha = .1;
+        //     this.ctx.fillRect(0, _height * .58, _width, _height * .08);
+        //     this.ctx.restore();
+        //     this.ctx.fillText(_message1, _width * .5, _height * .59);
+        //     this.ctx.fillText(_message2, _width * .5, _height * .62);
+        //     _helped = true;
+        //     // setTimeout(this.update, 20000)
+        //     setTimeout(this.update.bind(this), 20000);
+        // }
     };
+
+
+function canvasMouseDown() {
+    _touchTimer = setTimeout(startCross, 100)
+}
+
+function canvasMouseUp() {
+    if (helpText.style.display === "block")
+        helpText.style.display = "none";
+    // if (_touchTimer) {
+    //     clearTimeout(_touchTimer);
+    //     if (_helped) {
+    //         _helped = false;
+    //         Area.update();
+    //     } else
+    //         Area.help();
+    // }
+}
 
 let Progress =
     {
@@ -445,30 +464,32 @@ function Singer(id) {   // Singer object constructor
 
 function createHelpButton() {
     // Create the help button
-    const button = document.createElement("button");
-    button.setAttribute("title", "Help");
-    button.setAttribute("aria-label", "Show help information");
-
+    helpButton.setAttribute("title", "Help");
+    helpButton.setAttribute("aria-label", "Show help information");
 
     // Style the button with the image
-    button.style.position = "fixed";
-    button.style.top = "10px";
-    button.style.left = "10px";
-    button.style.width = "40px";  // Match your image’s width
-    button.style.height = "40px"; // Match your image’s height
-    button.style.borderRadius = "50%"; // Keeps it round if the image has transparency
-    button.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
-    button.style.backgroundImage = `url('${_img_path}help_btn.png')`; // Path to your image
-    button.style.backgroundSize = "cover"; // Ensures the image fills the button
-    button.style.backgroundPosition = "center"; // Centers the image
-    button.style.border = "none"; // No border, assuming the image defines it
-    button.style.cursor = "pointer"; // Hand cursor on hover
-    button.style.zIndex = "1000"; // Ensures it stays on top
+    helpButton.style.position = "fixed";
+    helpButton.style.top = "10px";
+    helpButton.style.left = "10px";
+    helpButton.style.width = "40px";  // Match your image’s width
+    helpButton.style.height = "40px"; // Match your image’s height
+    helpButton.style.borderRadius = "50%"; // Keeps it round if the image has transparency
+    helpButton.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
+    helpButton.style.backgroundImage = `url('${_img_path}help_btn.png')`; // Path to your image
+    helpButton.style.backgroundSize = "cover"; // Ensures the image fills the button
+    helpButton.style.backgroundPosition = "center"; // Centers the image
+    helpButton.style.border = "none"; // No border, assuming the image defines it
+    helpButton.style.cursor = "pointer"; // Hand cursor on hover
+    helpButton.style.zIndex = "1000"; // Ensures it stays on top
 
     // Create the help text container
-    const helpText = document.createElement("div");
-    helpText.innerHTML = `<p>Click a ball to play or pause a song. Drag a ball to move it.
-        Use the Space key to play/pause, Arrow keys to adjust volume or seek.</p>`;
+    helpText.innerHTML = `<p>Click a ball to play or pause a song.</br>
+        Arrow keys to adjust volume or seek.</br>
+        Ctrl + Left/Right arrow keys to skip.</br>
+        The Space key toggles play/pause.</br>
+        Swipe a ball to disable it,</br>\xa0 click on it to re-enable.</br>
+        Drag a ball to move or stop it.
+        </p>`;
     helpText.style.display = "none";
 
     // Style the help text
@@ -479,37 +500,21 @@ function createHelpButton() {
     helpText.style.color = "#808080";
     // helpText.style.padding = "10px";
     // helpText.style.borderRadius = "5px";
-    helpText.style.maxWidth = "200px";
+    helpText.style.maxWidth = "280px";
     helpText.style.zIndex = "1000";
     // helpText.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.3)";
 
     // Toggle help text visibility on button click
-    button.addEventListener("click", () => {
+    helpButton.addEventListener("click", () => {
         helpText.style.display = helpText.style.display === "none" ? "block" : "none";
     });
 
     // Append elements to the DOM
-    document.body.appendChild(button);
+    document.body.appendChild(helpButton);
     document.body.appendChild(helpText);
 }
 
 // # ___ ___________________  DRAG & DROP  __________________________
-
-
-function canvasTouch() {
-    _touchTimer = setTimeout(startCross, 100)
-}
-
-function canvasLet() {
-    if (_touchTimer) {
-        clearTimeout(_touchTimer);
-        if (_helped) {
-            _helped = false;
-            Area.update();
-        } else
-            Area.help();
-    }
-}
 
 function startCross() {
     _touchTimer = 0;
@@ -724,7 +729,7 @@ function playControl(stop) {
         _globalPlayer.currentTime = 0;
     } else if (_globalPlayer.paused) {
         _globalPlayer.play().then(_ => {
-            console.log(`Playing "${_currSinger.title}"`);
+            // console.log(`Playing "${_currSinger.title}"`);
         });
     } else {
         _globalPlayer.pause();
@@ -758,7 +763,7 @@ function setCurrent() {
     // Resume AudioContext if suspended
     if (Volume.audioCtx.state === 'suspended') {
         Volume.audioCtx.resume().then(() => {
-            console.log('AudioContext resumed');
+            // console.log('AudioContext resumed');
         });
     }
 
@@ -769,13 +774,13 @@ function setCurrent() {
     let playPromise = _globalPlayer.play();
     if (playPromise !== undefined) {
         playPromise.then(() => {
-            console.log(`Autoplay started, playing "${_currSinger.title}"`);
+            // console.log(`Autoplay started, playing "${_currSinger.title}"`);
         }).catch(error => {
             console.log('Autoplay failed:', error);
             // Fallback: play when audio is ready
             _globalPlayer.oncanplaythrough = function() {
                 _globalPlayer.play().then(_ => {
-                    console.log(`Playing "${_currSinger.title}"`);
+                    // console.log(`Playing "${_currSinger.title}"`);
                 });
                 _globalPlayer.oncanplaythrough = null; // Prevent multiple triggers
             };
@@ -784,18 +789,24 @@ function setCurrent() {
 
     _globalPlayer.onended = skip; // When track ends, call skip
     _cover = singer.cover;
-    _list.splice(_list.indexOf(singer), 1);
-    _list.push(singer);
+    // _list.splice(_list.indexOf(singer), 1);
+    // _list.push(singer);
     Area.update();
 }
 
-function skip() {
+function skip(prev = false) {
     if (_currSinger) {
-        let currentIndex = _list.indexOf(_currSinger);       // Find current track’s position
-        let nextIndex = (currentIndex + 1) % _list.length;   // Get next track, loop if needed
-        setCurrent.apply(_list[nextIndex]);                  // Play the next track
+        let nextIndex;
+        let currentIndex = _list.indexOf(_currSinger); // Find current track’s position
+        if (prev) { // Get previous track, loop if needed
+            nextIndex = (currentIndex - 1 + _list.length) % _list.length;
+        }
+        else { // Get next track, loop if needed
+            nextIndex = (currentIndex + 1) % _list.length;
+        }
+        setCurrent.apply(_list[nextIndex]); // Play the next/previous track
     } else {
-        setCurrent.apply(_list[0]);                          // If no current track, play first
+        // setCurrent.apply(_list[0]); // If no current track, play first (not working)
     }
 }
 
@@ -898,14 +909,16 @@ function keyStart(evt) {
         }
     } else if (_currSinger) {
         if (keycode === "ArrowRight" || keycode === 39) {
-            if (_globalPlayer.paused) skip();
+            // if (_globalPlayer.paused) skip();
+            if (evt.ctrlKey) skip();
             else if (_globalPlayer.currentTime < _globalPlayer.duration) {
                 _proDragged = true;
                 Progress.barbody.style.left = Progress.barbody.offsetLeft + 50 + "px";
             }
             evt.preventDefault();
         } else if (keycode === "ArrowLeft" || keycode === 37) {
-            if (_globalPlayer.paused) skip(true);
+            // if (_globalPlayer.paused) skip(true);
+            if (evt.ctrlKey) skip(true);
             else if (_globalPlayer.currentTime > 0) {
                 _proDragged = true;
                 Progress.barbody.style.left = Progress.barbody.offsetLeft - 30 + "px";
