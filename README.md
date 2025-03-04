@@ -1,2 +1,2 @@
 # noEmbryoPlayer
-A JavaScript music player
+A Demo player try..
