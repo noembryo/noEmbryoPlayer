@@ -45,10 +45,10 @@ const _ballFont = _fontHeight + "px tahoma";
 const _barFont = _fontHeight + 2 + "px tahoma";
 const _titleFont = _fontHeight * 2 + "px tahoma";
 
-// const _music_path = "https://noembryo.github.io/noEmbryoPlayer/audio/";
-// const _img_path = "https://noembryo.github.io/noEmbryoPlayer/images/";
-const _music_path = "docs/audio/";
-const _img_path = "docs/images/";
+const _music_path = "https://noembryo.github.io/noEmbryoPlayer/audio/";
+const _img_path = "https://noembryo.github.io/noEmbryoPlayer/images/";
+// const _music_path = "docs/audio/";
+// const _img_path = "docs/images/";
 const helpButton = document.createElement("button");
 const helpText = document.createElement("div");
 
