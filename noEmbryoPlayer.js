@@ -43,10 +43,10 @@ const _ballFont = _fontHeight + "px tahoma";
 const _barFont = _fontHeight + 2 + "px tahoma";
 const _titleFont = _fontHeight * 2 + "px tahoma";
 
-let _music_path = "https://noembryo.github.io/noEmbryoPlayer/audio/";
-let _img_path = "https://noembryo.github.io/noEmbryoPlayer/images/";
-// let _music_path = "docs/audio/";
-// let _img_path = "docs/images/";
+// let _music_path = "https://noembryo.github.io/noEmbryoPlayer/audio/";
+// let _img_path = "https://noembryo.github.io/noEmbryoPlayer/images/";
+let _music_path = "docs/audio/";
+let _img_path = "docs/images/";
 
 let _globalPlayer = document.createElement("audio");
 _globalPlayer.setAttribute("crossorigin", "anonymous");
@@ -70,7 +70,7 @@ let Area =
                 canvasTouch(evt)
             };
             this.canvas.onmouseup = function (evt) {
-                canvasLet(evt)
+                // canvasLet(evt)
             };
             document.body.insertBefore(this.canvas, document.body.childNodes[0]);
             this.ctx = this.canvas.getContext("2d");
@@ -391,6 +391,10 @@ function Singer(id) {   // Singer object constructor
         this.vy = (Math.random() * 2 - 1) * this.speed;
     };
 
+    this.isStopped = function() {
+        return this.vx === 0 && this.vy === 0;
+    };
+
     this.update = function () {
         if (this.body.className !== "dragged") {
             this.checkBounds();
@@ -437,6 +441,56 @@ function Singer(id) {   // Singer object constructor
             this.color = _offColor;
         this.draw()
     };
+}
+
+function createHelpButton() {
+    // Create the help button
+    const button = document.createElement("button");
+    button.setAttribute("title", "Help");
+    button.setAttribute("aria-label", "Show help information");
+
+
+    // Style the button with the image
+    button.style.position = "fixed";
+    button.style.top = "10px";
+    button.style.left = "10px";
+    button.style.width = "40px";  // Match your image’s width
+    button.style.height = "40px"; // Match your image’s height
+    button.style.borderRadius = "50%"; // Keeps it round if the image has transparency
+    button.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
+    button.style.backgroundImage = `url('${_img_path}help_btn.png')`; // Path to your image
+    button.style.backgroundSize = "cover"; // Ensures the image fills the button
+    button.style.backgroundPosition = "center"; // Centers the image
+    button.style.border = "none"; // No border, assuming the image defines it
+    button.style.cursor = "pointer"; // Hand cursor on hover
+    button.style.zIndex = "1000"; // Ensures it stays on top
+
+    // Create the help text container
+    const helpText = document.createElement("div");
+    helpText.innerHTML = `<p>Click a ball to play or pause a song. Drag a ball to move it.
+        Use the Space key to play/pause, Arrow keys to adjust volume or seek.</p>`;
+    helpText.style.display = "none";
+
+    // Style the help text
+    helpText.style.position = "fixed";
+    helpText.style.top = "40px";
+    helpText.style.left = "10px";
+    helpText.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
+    helpText.style.color = "#808080";
+    // helpText.style.padding = "10px";
+    // helpText.style.borderRadius = "5px";
+    helpText.style.maxWidth = "200px";
+    helpText.style.zIndex = "1000";
+    // helpText.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.3)";
+
+    // Toggle help text visibility on button click
+    button.addEventListener("click", () => {
+        helpText.style.display = helpText.style.display === "none" ? "block" : "none";
+    });
+
+    // Append elements to the DOM
+    document.body.appendChild(button);
+    document.body.appendChild(helpText);
 }
 
 // # ___ ___________________  DRAG & DROP  __________________________
@@ -487,6 +541,8 @@ let dragDrop =
         startY: undefined,
         draggedObject: undefined,
         wasDragged: false,
+        startTime: 0,
+        recentMovements: [],
 
         initElement: function (element) {
             if (typeof element == 'string')
@@ -494,13 +550,14 @@ let dragDrop =
             element.onmousedown = dragDrop.startDragMouse;
         },
         startDragMouse: function (e) {
-            if (!isNaN(parseInt(this.id)) || this.id === "volbar"
-                || (this.id === "probar" && _currSinger)) {
+            if (!isNaN(parseInt(this.id)) || this.id === "volbar" || (this.id === "probar" && _currSinger)) {
                 dragDrop.startDrag(this);
                 // noinspection JSDeprecatedSymbols
                 let evt = e || window.event;
                 dragDrop.initialMouseX = evt.clientX;
                 dragDrop.initialMouseY = evt.clientY;
+                dragDrop.startTime = Date.now();         // Initialize start time
+                dragDrop.recentMovements = [];           // Reset movement history
                 addEventSimple(document, 'mousemove', dragDrop.dragMouse);
                 addEventSimple(document, 'mouseup', dragDrop.releaseElement);
                 return false;
@@ -520,6 +577,17 @@ let dragDrop =
             let dX = evt.clientX - dragDrop.initialMouseX;
             let dY = evt.clientY - dragDrop.initialMouseY;
             dragDrop.setPosition(dX, dY);
+
+            // Record the current mouse position and timestamp
+            dragDrop.recentMovements.push({
+                x: evt.clientX,
+                y: evt.clientY,
+                time: Date.now()
+            });
+            // Keep only the last 3 movements to track recent activity
+            if (dragDrop.recentMovements.length > 3) {
+                dragDrop.recentMovements.shift();
+            }
             return false;
         },
         setPosition: function (dx, dy) {
@@ -541,21 +609,57 @@ let dragDrop =
             let distance = Math.sqrt(dx * dx + dy * dy);
             dragDrop.wasDragged = distance > 5;
 
-            // Remove drag event listeners
             removeEventSimple(document, 'mousemove', dragDrop.dragMouse);
             removeEventSimple(document, 'mouseup', dragDrop.releaseElement);
             dragDrop.draggedObject.className =
-              dragDrop.draggedObject.className.replace(/dragged/, '');
+                dragDrop.draggedObject.className.replace(/dragged/, '');
 
-            // Update the ball’s position and velocity
             if (dragDrop.draggedObject.singer) {
-              dragDrop.draggedObject.singer.cx = dragDrop.draggedObject.offsetLeft + _radius * 1.1;
-              dragDrop.draggedObject.singer.cy = dragDrop.draggedObject.offsetTop + _radius * 1.1;
-              if (dragDrop.wasDragged) {
-                // Set velocity based on drag distance only if it was dragged
-                dragDrop.draggedObject.singer.vx = dx * 0.1;
-                dragDrop.draggedObject.singer.vy = dy * 0.1;
-              }
+                dragDrop.draggedObject.singer.cx = dragDrop.draggedObject.offsetLeft + _radius * 1.1;
+                dragDrop.draggedObject.singer.cy = dragDrop.draggedObject.offsetTop + _radius * 1.1;
+
+                let duration = (Date.now() - dragDrop.startTime) / 1000; // Duration in seconds
+
+                if (duration < 0.2 && distance < 5) {
+                    // Quick click: Do not change velocity (playback toggled by onclick)
+                } else if (dragDrop.recentMovements.length >= 2) {
+                    // Analyze recent movements
+                    let xs = dragDrop.recentMovements.map(m => m.x);
+                    let ys = dragDrop.recentMovements.map(m => m.y);
+                    let meanX = xs.reduce((a, b) => a + b, 0) / xs.length;
+                    let meanY = ys.reduce((a, b) => a + b, 0) / ys.length;
+                    let varX = xs.reduce((a, b) => a + (b - meanX) ** 2, 0) / xs.length;
+                    let varY = ys.reduce((a, b) => a + (b - meanY) ** 2, 0) / ys.length;
+
+                    if (varX < 1 && varY < 1) {
+                        // Mouse was stationary: Set velocity to 0
+                        dragDrop.draggedObject.singer.vx = 0;
+                        dragDrop.draggedObject.singer.vy = 0;
+                    } else {
+                        // Mouse was moving: Calculate velocity from last two points
+                        let p1 = dragDrop.recentMovements[dragDrop.recentMovements.length - 2];
+                        let p2 = dragDrop.recentMovements[dragDrop.recentMovements.length - 1];
+                        let dt = (p2.time - p1.time) / 1000; // Time difference in seconds
+                        if (dt > 0) {
+                            let vx = (p2.x - p1.x) / dt / 60; // Velocity per frame (assuming 60 fps)
+                            let vy = (p2.y - p1.y) / dt / 60;
+                            dragDrop.draggedObject.singer.vx = vx;
+                            dragDrop.draggedObject.singer.vy = vy;
+
+                            // Cap velocity to prevent excessive speed
+                            let max_v = 5;
+                            let v_mag = Math.sqrt(vx * vx + vy * vy);
+                            if (v_mag > max_v) {
+                                dragDrop.draggedObject.singer.vx = vx / v_mag * max_v;
+                                dragDrop.draggedObject.singer.vy = vy / v_mag * max_v;
+                            }
+                        }
+                    }
+                } else {
+                    // Insufficient movement data (e.g., very short hold): Set velocity to 0
+                    dragDrop.draggedObject.singer.vx = 0;
+                    dragDrop.draggedObject.singer.vy = 0;
+                }
             }
 
             dragDrop.draggedObject = null;
@@ -578,6 +682,7 @@ function startApp() {
         keyEnd(event)
     };
     embryoLoop()
+    createHelpButton();
 }
 
 function populate() {
@@ -707,48 +812,54 @@ function exclude() {
 // # ___ ___________________  EVENTS  _______________________________
 
 function embryoLoop() {
-    let i;
+    let i, j, singer, other, dx, dy, dist, mindist, pointofcontactx,
+        pointofcontacty, coursecorrectionx, coursecorrectiony;
     let l = _singers.length;
-    let singer;
-    let j;
-    let other;
-    let dx;
-    let dy;
-    let dist;
-    let mindist;
-    let pointofcontactx;
-    let pointofcontacty;
-    let coursecorrectionx;
-    let coursecorrectiony;
 
-    //for (i = 0; i < l - 1; i++)
     for (i = 0; i < l; i++) {
-        if (!_singers[i] || !_singers[i].vx)
-            continue;
+        if (!_singers[i]) continue; // Skip if singer doesn’t exist
         singer = _singers[i];
 
         for (j = i + 1; j < l; j++) {
-            if (!_singers[j] || !_singers[j].vx)
-                continue;
+            if (!_singers[j]) continue; // Skip if other doesn’t exist
             other = _singers[j];
+
+            // Calculate distance between ball centers
             dx = other.cx - singer.cx;
             dy = other.cy - singer.cy;
             dist = Math.sqrt(dx * dx + dy * dy);
-            mindist = _radius * 2;
-            //mindist = (j === l - 1) ? _radius + _logoRadius : _radius * 2;
+            mindist = _radius * 2; // Assuming _radius is the ball radius
 
+            // Check for collision
             if (dist < mindist) {
-                pointofcontactx = singer.cx + dx / dist * mindist;
-                pointofcontacty = singer.cy + dy / dist * mindist;
-                coursecorrectionx = (pointofcontactx - other.cx);
-                coursecorrectiony = (pointofcontacty - other.cy);
-                singer.vx -= coursecorrectionx;
-                singer.vy -= coursecorrectiony;
-                other.vx += coursecorrectionx;
-                other.vy += coursecorrectiony;
+                // Calculate point of contact and correction vector
+                pointofcontactx = singer.cx + (dx / dist) * mindist;
+                pointofcontacty = singer.cy + (dy / dist) * mindist;
+                coursecorrectionx = pointofcontactx - other.cx;
+                coursecorrectiony = pointofcontacty - other.cy;
+
+                // Handle collision based on ball states
+                if (singer.isStopped() && other.isStopped()) {
+                    // Both stopped: do nothing
+                    // continue;
+                } else if (singer.isStopped()) {
+                    // Singer stopped, other moving: bounce other off singer
+                    other.vx += coursecorrectionx * 2;
+                    other.vy += coursecorrectiony * 2;
+                } else if (other.isStopped()) {
+                    // Other stopped, singer moving: bounce singer off other
+                    singer.vx -= coursecorrectionx * 2;
+                    singer.vy -= coursecorrectiony * 2;
+                } else {
+                    // Both moving: bounce both off each other
+                    singer.vx -= coursecorrectionx;
+                    singer.vy -= coursecorrectiony;
+                    other.vx += coursecorrectionx;
+                    other.vy += coursecorrectiony;
+                }
             }
         }
-        singer.update();
+        singer.update(); // Update position based on velocity
     }
 
     if (_proDragged || Progress.barbody.className === "dragged") {
