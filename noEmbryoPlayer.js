@@ -692,10 +692,14 @@ function startApp() {
 }
 
 function populate() {
-    let _random_ids = Array.from({length: _titles.length},
-        (_, i) => i);
-    _random_ids.sort(() => Math.random() - 0.5);
-    _random_ids.forEach(idx => create_singer(idx));
+    let _ids_list = Array.from({length: _titles.length},
+        (_, i) => i); // Sort by album
+
+    // _ids_list.sort(() => Math.random() - 0.5); // shuffle
+    // _ids_list.sort((a, b) => a.title.localeCompare(b.title)); // Sort by title
+
+    console.log(_ids_list);
+    _ids_list.forEach(idx => create_singer(idx));
 }
 
 function calcLaunch() { // puts ball in random unoccupied place
@@ -718,7 +722,8 @@ function create_singer(id) {
         singer.cy = _launchPoint.y;
         singer.make();
         _singers[id] = singer;
-        _list.unshift(singer);
+        // _list.unshift(singer); // put new singer at the top
+        _list.push(singer); // put new singer at the bottom
     }
 }
 
@@ -805,6 +810,7 @@ function skip(prev = false) {
         else { // Get next track, loop if needed
             nextIndex = (currentIndex + 1) % _list.length;
         }
+        console.log(nextIndex)
         setCurrent.apply(_list[nextIndex]); // Play the next/previous track
     } else {
         // setCurrent.apply(_list[0]); // If no current track, play first (not working)
