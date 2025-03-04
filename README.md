@@ -1,2 +1,2 @@
 # noEmbryoPlayer
-A Demo player try..
+Trying a Demo player..

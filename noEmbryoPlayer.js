@@ -812,11 +812,11 @@ function embryoLoop() {
     let l = _singers.length;
 
     for (i = 0; i < l; i++) {
-        if (!_singers[i]) continue; // Skip if singer doesn’t exist
+        if (!_singers[i]) continue; // Skip if singer does not exist
         singer = _singers[i];
 
         for (j = i + 1; j < l; j++) {
-            if (!_singers[j]) continue; // Skip if other doesn’t exist
+            if (!_singers[j]) continue; // Skip if other does not exist
             other = _singers[j];
 
             // Calculate distance between ball centers
