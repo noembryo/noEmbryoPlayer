@@ -138,6 +138,7 @@ function canvasMouseDown() {
 }
 
 function canvasMouseUp() {
+    clearTimeout(_touchTimer);
     if (helpText.style.display === "block")
         helpText.style.display = "none";
     // if (_touchTimer) {
@@ -496,7 +497,7 @@ function createHelpButton() {
     helpText.style.position = "fixed";
     helpText.style.top = "40px";
     helpText.style.left = "10px";
-    helpText.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
+    helpText.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
     helpText.style.color = "#808080";
     // helpText.style.padding = "10px";
     // helpText.style.borderRadius = "5px";
