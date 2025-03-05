@@ -33,6 +33,7 @@ let _volDragged = false;
 let _volume = 1;
 let _globalPlayer = document.createElement("audio");
 _globalPlayer.setAttribute("crossorigin", "anonymous");
+_globalPlayer.onended = skip; // When track ends, call skip
 // _globalPlayer.setAttribute("preload", "auto");
 let draggedItem = null;
 
@@ -522,7 +523,7 @@ function createListButton() {
 
     listBox.id = "listBox";  // Ensure the id matches the CSS selector
     listBox.style.position = "fixed";
-    listBox.style.top = "40px";
+    listBox.style.top = "50px";
     listBox.style.left = "10px";
     listBox.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
     listBox.style.color = "#808080";
@@ -531,7 +532,7 @@ function createListButton() {
     listBox.style.maxHeight = (_height - 70) + "px"; // Leave space for button and padding
     listBox.style.overflowY = "auto"; // Enable vertical scrolling
     // listBox.style.padding = "10px"; // Add padding for aesthetics
-    listBox.style.borderRadius = "5px";
+    // listBox.style.borderRadius = "5px";
     listBox.style.display = "none";
 
     // Toggle help text visibility on button click
@@ -579,31 +580,39 @@ function createListBox() {
         // noinspection JSValidateTypes
         li.dataset.index = index;
         li.draggable = true;
-        li.style.padding = "5px";
+        li.style.padding = "1px";
         li.style.cursor = "pointer";
+        li.style.display = "flex"; // Align image and text horizontally
+        li.style.alignItems = "center"; // Center vertically
 
-        // Add checkbox
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = !singer.disabled; // Checked means enabled
-        checkbox.addEventListener('change', () => {
-            if (singer === _currSinger && !checkbox.checked) { // if currently playing
-                checkbox.checked = true;                       // re-enable the track
-                return;
+        // Add custom image instead of checkbox
+        const stateImg = document.createElement('img');
+        stateImg.src = singer.disabled ? `${_imgPath}radio_unchecked.png` : `${_imgPath}radio_checked.png`;
+        stateImg.style.width = "16px"; // Adjust size as needed
+        stateImg.style.height = "16px";
+        stateImg.style.marginRight = "8px"; // Space between image and text
+        stateImg.style.cursor = "pointer"; // Indicate clickable
+
+        stateImg.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent li click handler from firing
+            if (singer === _currSinger && !singer.disabled) {
+                return; // Prevent disabling the current track
             }
-            singer.disabled = !checkbox.checked; // Update disabled state
-            updateSingerState(singer); // Reflect the change
+            singer.disabled = !singer.disabled;
+            stateImg.src = singer.disabled ? `${_imgPath}radio_unchecked.png` : `${_imgPath}radio_checked.png`;
+            updateSingerState(singer);
         });
-        li.appendChild(checkbox);
+        li.appendChild(stateImg);
+
 
         // Add track title
         const trackSpan = document.createElement('span');
         trackSpan.textContent = singer.title;
         li.appendChild(trackSpan);
 
-        // Click handler for selecting track (ignores checkbox clicks)
+        // Click handler for selecting track (ignores image clicks)
         li.addEventListener('click', (e) => {
-            if (e.target !== checkbox) {
+            if (e.target !== stateImg) {
                 setCurrent.call(singer);
             }
         });
@@ -650,15 +659,18 @@ function updateListBox() {
 function updateSingerState(singer) {
     const index = _list.indexOf(singer);
     const li = listBox.querySelector(`li[data-index="${index}"]`);
+    const stateImg = li.querySelector('img');
 
     if (singer.disabled) {
-        li.classList.add('disabled'); // Gray out the list item
-        singer.color = '#111111'; // Gray color for disabled ball (adjust as needed)
+        li.classList.add('disabled');
+        singer.color = '#111111'; // Gray for disabled ball
+        stateImg.src = `${_imgPath}radio_unchecked.png`;
     } else {
-        li.classList.remove('disabled'); // Restore normal style
-        singer.color = '#400082'; // Default color (adjust as needed)
+        li.classList.remove('disabled');
+        singer.color = '#400082'; // Default color
+        stateImg.src = `${_imgPath}radio_checked.png`;
     }
-    singer.draw(); // Redraw the ball to reflect the new color
+    singer.draw(); // Redraw the ball
 }
 
 function handleDragStart(e) {
@@ -879,6 +891,7 @@ function startApp() {
     createListButton()
     createHelpButton();
 
+
     // Add styles for active state
     const style = document.createElement('style');
     style.textContent = `
@@ -889,9 +902,9 @@ function startApp() {
             font-weight: bold;
             text-decoration: underline;
         }
-        #listBox li:hover {
-            text-decoration: underline;
-        }
+        // #listBox li:hover {
+        //     text-decoration: underline;
+        // }
         #listBox li.disabled {
             color: gray;
             text-decoration: line-through;
@@ -903,6 +916,13 @@ function startApp() {
             color: #fff;
             border: none;
             cursor: pointer;
+        }
+        #listBox li img {
+            vertical-align: middle;
+            transition: opacity 0.2s; /* Smooth toggle effect */
+        }
+        #listBox li.disabled img {
+            opacity: 0.5; /* Dim disabled state */
         }
     `;
     document.head.appendChild(style);
@@ -951,13 +971,6 @@ function playControl(stop) {
 function setCurrent() {
     // let singer = _singers[this.id];
     // let singer = this;
-    // if (this.disabled) {
-    //     this.color = _offColor;
-    //     this.draw();
-    //     // _list.unshift(this);
-    //     this.disabled = false;
-    //     return;
-    // }
     if (this.disabled) {
         this.color = _offColor;
         this.draw();
@@ -1007,7 +1020,6 @@ function setCurrent() {
         });
     }
 
-    _globalPlayer.onended = skip; // When track ends, call skip
     _cover = this.cover;
     // _list.splice(_list.indexOf(singer), 1);
     // _list.push(singer);
@@ -1018,6 +1030,7 @@ function setCurrent() {
 function skip(prev = false) {
     if (_currSinger) {
         let currentIndex = _list.indexOf(_currSinger);
+        prev = typeof prev === 'boolean' ? prev : false;
         let step = prev ? -1 : 1;
         let nextIndex = (currentIndex + step + _list.length) % _list.length;
 
