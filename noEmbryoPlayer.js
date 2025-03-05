@@ -13,11 +13,6 @@ let _titles = ["Glassoid", "Saritan",
 let _albums = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]; // RESPECTIVE ALBUM NUMBERS
 
-let _ids_list = Array.from({length: _titles.length},
-    (_, i) => i); // Sort by album
-_ids_list.sort(() => Math.random() - 0.5); // shuffle
-// _ids_list.sort((a, b) => a.title.localeCompare(b.title)); // Sort by title
-
 let _width = document.documentElement.clientWidth;
 let _height = document.documentElement.clientHeight;
 let _cover;
@@ -54,10 +49,10 @@ const _ballFont = _fontHeight + "px tahoma";
 const _barFont = _fontHeight + 2 + "px tahoma";
 const _titleFont = _fontHeight * 2 + "px tahoma";
 
-// const _musicPath = "https://noembryo.github.io/noEmbryoPlayer/audio/";
-// const _imgPath = "https://noembryo.github.io/noEmbryoPlayer/images/";
-const _musicPath = "docs/audio/";
-const _imgPath = "docs/images/";
+const _musicPath = "https://noembryo.github.io/noEmbryoPlayer/audio/";
+const _imgPath = "https://noembryo.github.io/noEmbryoPlayer/images/";
+// const _musicPath = "docs/audio/";
+// const _imgPath = "docs/images/";
 const listButton = document.createElement("button");
 const listBox = document.createElement("div");
 const helpButton = document.createElement("button");
@@ -477,7 +472,6 @@ function createHelpButton() {
         Arrow keys to adjust volume or seek.</br>
         Ctrl + Left/Right arrow keys to skip.</br>
         The Space key toggles play/pause.</br>
-        Swipe a ball to disable it,</br>\xa0 click on it to re-enable.</br>
         Drag a ball to move or stop it.
         </p>`;
     helpText.style.display = "none";
@@ -526,24 +520,17 @@ function createListButton() {
     listButton.style.cursor = "pointer"; // Hand cursor on hover
     listButton.style.zIndex = "1000"; // Ensures it stays on top
 
-    // let txt = "<p>";
-    // _ids_list.forEach(id => {
-    //     txt += _titles[id] + "<br/>";
-    // });
-    // listBox.innerHTML = txt + "</p>";
-    // // listBox.innerHTML = "<p>" + _titles.join("<br/>") + "</p>";
-
     listBox.id = "listBox";  // Ensure the id matches the CSS selector
     listBox.style.position = "fixed";
     listBox.style.top = "40px";
     listBox.style.left = "10px";
     listBox.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
     listBox.style.color = "#808080";
-    listBox.style.maxWidth = "280px";
+    // listBox.style.maxWidth = "200px";
     listBox.style.zIndex = "1000";
-    listBox.style.maxHeight = (_height - 80) + "px"; // Leave space for button and padding
+    listBox.style.maxHeight = (_height - 70) + "px"; // Leave space for button and padding
     listBox.style.overflowY = "auto"; // Enable vertical scrolling
-    listBox.style.padding = "10px"; // Add padding for aesthetics
+    // listBox.style.padding = "10px"; // Add padding for aesthetics
     listBox.style.borderRadius = "5px";
     listBox.style.display = "none";
 
@@ -874,7 +861,12 @@ let dragDrop =
 function startApp() {
     Area.make();
     Volume.make();
+
+    let _ids_list = Array.from({length: _titles.length},
+        (_, i) => i); // Sort by album
+    // _ids_list.sort(() => Math.random() - 0.5); // shuffle
     _ids_list.forEach(idx => create_singer(idx));
+    shuffleList();
     setTimeout(() => Area.basics(), 1000);
 
     window.onkeydown = function (event) {
