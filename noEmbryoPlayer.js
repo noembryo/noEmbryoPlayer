@@ -12,8 +12,11 @@ let _titles = ["Glassoid", "Saritan",
 // ^^^ SAME LENGTH & ORDER AS THE ABOVE !!! ^^^
 let _albums = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]; // RESPECTIVE ALBUM NUMBERS
+
 let _ids_list = Array.from({length: _titles.length},
     (_, i) => i); // Sort by album
+_ids_list.sort(() => Math.random() - 0.5); // shuffle
+// _ids_list.sort((a, b) => a.title.localeCompare(b.title)); // Sort by title
 
 let _width = document.documentElement.clientWidth;
 let _height = document.documentElement.clientHeight;
@@ -548,6 +551,7 @@ function createListButton() {
     listButton.addEventListener("click", () => {
         if (listBox.style.display === "none" || !listBox.children.length) {
             createListBox(); // Populate list on first open or if empty
+            updateListBox(); // Highlight active track
         }
         if (helpText.style.display === "block")
             helpText.style.display = "none";
@@ -560,6 +564,24 @@ function createListButton() {
 
 function createListBox() {
     listBox.innerHTML = ''; // Clear existing content
+
+    // Add controls div with buttons
+    const controlsDiv = document.createElement('div');
+    controlsDiv.style.marginBottom = '10px';
+
+    const sortButton = document.createElement('button');
+    sortButton.textContent = 'Sort by Album';
+    sortButton.addEventListener('click', sortByAlbum);
+    controlsDiv.appendChild(sortButton);
+
+    const shuffleButton = document.createElement('button');
+    shuffleButton.textContent = 'Shuffle';
+    shuffleButton.addEventListener('click', shuffleList);
+    controlsDiv.appendChild(shuffleButton);
+
+    listBox.appendChild(controlsDiv);
+
+    // Create the track list (ul)
     const ul = document.createElement('ul');
     ul.style.listStyle = "none";
     ul.style.padding = "0";
@@ -692,6 +714,23 @@ function handleDrop(_) {
 function handleDragEnd() {
     this.style.opacity = '1'; // Reset opacity
     draggedItem = null;
+}
+
+function sortByAlbum() {
+    _list.sort((a, b) => {
+        if (a.cover !== b.cover) {
+            return a.cover - b.cover; // Sort by album number
+        } else {
+            return a.id - b.id; // Within album, sort by original order
+        }
+    });
+    createListBox();
+    updateListBox(); // Highlight the current track
+}
+function shuffleList() {
+    _list.sort(() => Math.random() - 0.5);
+    createListBox();
+    updateListBox(); // Highlight the current track
 }
 
 // # ___ _________________  DRAG & DROP BALLS  ______________________
@@ -835,9 +874,8 @@ let dragDrop =
 function startApp() {
     Area.make();
     Volume.make();
-    // makeSong(_random_ids[0]);
-    populate();
-    setTimeout(() => Area.basics(), 1000);  // 2check: Why this delay?
+    _ids_list.forEach(idx => create_singer(idx));
+    setTimeout(() => Area.basics(), 1000);
 
     window.onkeydown = function (event) {
         keyStart(event)
@@ -866,16 +904,16 @@ function startApp() {
             color: gray;
             text-decoration: line-through;
         }
+        #listBox button {
+            margin-right: 10px;
+            padding: 5px 10px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
     `;
     document.head.appendChild(style);
-}
-
-function populate() {
-    _ids_list.sort(() => Math.random() - 0.5); // shuffle
-    // _ids_list.sort((a, b) => a.title.localeCompare(b.title)); // Sort by title
-
-    // console.log(_ids_list);
-    _ids_list.forEach(idx => create_singer(idx));
 }
 
 function calcLaunch() { // puts ball in random unoccupied place
@@ -987,17 +1025,31 @@ function setCurrent() {
 
 function skip(prev = false) {
     if (_currSinger) {
-        let nextIndex;
-        let currentIndex = _list.indexOf(_currSinger); // Find current track’s position
-        if (prev) { // Get previous track, loop if needed
-            nextIndex = (currentIndex - 1 + _list.length) % _list.length;
+        let currentIndex = _list.indexOf(_currSinger);
+        let step = prev ? -1 : 1;
+        let nextIndex = (currentIndex + step + _list.length) % _list.length;
+
+        // Loop until an enabled track is found
+        while (_list[nextIndex].disabled) {
+            nextIndex = (nextIndex + step + _list.length) % _list.length;
+            if (nextIndex === currentIndex) {
+                // All tracks disabled: stop playback
+                playControl(true);
+                _currSinger.toggleSelect();
+                _currSinger = null;
+                Area.update();
+                return;
+            }
         }
-        else { // Get next track, loop if needed
-            nextIndex = (currentIndex + 1) % _list.length;
-        }
-        setCurrent.call(_list[nextIndex]); // Play the next/previous track
+        setCurrent.call(_list[nextIndex]);
     } else {
-        setCurrent.call(_list[0]); // If no current track, play first (not working)
+        // Find first enabled track
+        for (let singer of _list) {
+            if (!singer.disabled) {
+                setCurrent.call(singer);
+                break;
+            }
+        }
     }
 }
 
