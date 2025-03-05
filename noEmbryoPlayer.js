@@ -1,3 +1,5 @@
+// noinspection JSValidateTypes
+
 "use strict";
 
 let _titles = ["Glassoid", "Saritan",
@@ -10,6 +12,9 @@ let _titles = ["Glassoid", "Saritan",
 // ^^^ SAME LENGTH & ORDER AS THE ABOVE !!! ^^^
 let _albums = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]; // RESPECTIVE ALBUM NUMBERS
+let _ids_list = Array.from({length: _titles.length},
+    (_, i) => i); // Sort by album
+
 let _width = document.documentElement.clientWidth;
 let _height = document.documentElement.clientHeight;
 let _cover;
@@ -31,6 +36,7 @@ let _volume = 1;
 let _globalPlayer = document.createElement("audio");
 _globalPlayer.setAttribute("crossorigin", "anonymous");
 // _globalPlayer.setAttribute("preload", "auto");
+let draggedItem = null;
 
 const _offColor = "#400082";
 const _onColor = "#a47bff"; // 9869ff
@@ -45,13 +51,14 @@ const _ballFont = _fontHeight + "px tahoma";
 const _barFont = _fontHeight + 2 + "px tahoma";
 const _titleFont = _fontHeight * 2 + "px tahoma";
 
-const _musicPath = "https://noembryo.github.io/noEmbryoPlayer/audio/";
-const _imgPath = "https://noembryo.github.io/noEmbryoPlayer/images/";
-// const _musicPath = "docs/audio/";
-// const _imgPath = "docs/images/";
+// const _musicPath = "https://noembryo.github.io/noEmbryoPlayer/audio/";
+// const _imgPath = "https://noembryo.github.io/noEmbryoPlayer/images/";
+const _musicPath = "docs/audio/";
+const _imgPath = "docs/images/";
+const listButton = document.createElement("button");
+const listBox = document.createElement("div");
 const helpButton = document.createElement("button");
 const helpText = document.createElement("div");
-
 
 
 // # ___ ___________________  OBJECTS  ______________________________
@@ -117,12 +124,14 @@ let Area =
 
 
 function canvasMouseDown() {
-    _touchTimer = setTimeout(startCross, 100)
+    // _touchTimer = setTimeout(startCross, 100)
 }
 
 function canvasMouseUp() {
     if (helpText.style.display === "block")
         helpText.style.display = "none";
+    if (listBox.style.display === "block")
+        listBox.style.display = "none";
     if (_touchTimer) {
         clearTimeout(_touchTimer);
     }
@@ -307,7 +316,7 @@ function Singer(id) {   // Singer object constructor
     this.friction = 0.97;
     this.color = _offColor;
     this.selected = false;
-    // this.out = false;
+    // this.disabled = false;
 
     this.title = _titles[id];
     this.cover = _albums[id];
@@ -328,7 +337,7 @@ function Singer(id) {   // Singer object constructor
     this.body.onmousedown = dragDrop.startDragMouse;
     this.body.onclick = function() {
         if (!dragDrop.wasDragged) {
-            setCurrent.call(this);
+            setCurrent.call(this.singer);
         }
         dragDrop.wasDragged = false; // Reset flag after handling
     };
@@ -448,7 +457,7 @@ function createHelpButton() {
     // Style the button with the image
     helpButton.style.position = "fixed";
     helpButton.style.top = "10px";
-    helpButton.style.left = "10px";
+    helpButton.style.left = "60px";
     helpButton.style.width = "40px";  // Match your image’s width
     helpButton.style.height = "40px"; // Match your image’s height
     helpButton.style.borderRadius = "50%"; // Keeps it round if the image has transparency
@@ -484,6 +493,8 @@ function createHelpButton() {
 
     // Toggle help text visibility on button click
     helpButton.addEventListener("click", () => {
+    if (listBox.style.display === "block")
+        listBox.style.display = "none";
         helpText.style.display = helpText.style.display === "none" ? "block" : "none";
     });
 
@@ -492,29 +503,198 @@ function createHelpButton() {
     document.body.appendChild(helpText);
 }
 
-// # ___ ___________________  DRAG & DROP  __________________________
+// # ___ ___________________  PLAYLIST  _____________________________
 
-function startCross() {
-    _touchTimer = 0;
+function createListButton() {
+    listButton.setAttribute("title", "Playlist");
+    listButton.setAttribute("aria-label", "Show the Player's Playlist");
 
-    const length = _list.length;
+    listButton.style.position = "fixed";
+    listButton.style.top = "10px";
+    listButton.style.left = "10px";
+    listButton.style.width = "40px";  // Match your image’s width
+    listButton.style.height = "40px"; // Match your image’s height
+    listButton.style.borderRadius = "20%"; // Keeps it round if the image has transparency
+    listButton.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
+    listButton.style.backgroundImage = `url('${_imgPath}list_btn.png')`; // Path to your image
+    listButton.style.backgroundSize = "cover"; // Ensures the image fills the button
+    listButton.style.backgroundPosition = "center"; // Centers the image
+    listButton.style.border = "none"; // No border, assuming the image defines it
+    listButton.style.cursor = "pointer"; // Hand cursor on hover
+    listButton.style.zIndex = "1000"; // Ensures it stays on top
 
-    let i;
-    for (i = 0; i < length; i++)
-        addEventSimple(_list[i].body, 'mouseenter', exclude);
+    // let txt = "<p>";
+    // _ids_list.forEach(id => {
+    //     txt += _titles[id] + "<br/>";
+    // });
+    // listBox.innerHTML = txt + "</p>";
+    // // listBox.innerHTML = "<p>" + _titles.join("<br/>") + "</p>";
 
-    addEventSimple(document, 'mouseup', endCross);
-    return true
+    listBox.id = "listBox";  // Ensure the id matches the CSS selector
+    listBox.style.position = "fixed";
+    listBox.style.top = "40px";
+    listBox.style.left = "10px";
+    listBox.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    listBox.style.color = "#808080";
+    listBox.style.maxWidth = "280px";
+    listBox.style.zIndex = "1000";
+    listBox.style.maxHeight = (_height - 80) + "px"; // Leave space for button and padding
+    listBox.style.overflowY = "auto"; // Enable vertical scrolling
+    listBox.style.padding = "10px"; // Add padding for aesthetics
+    listBox.style.borderRadius = "5px";
+    listBox.style.display = "none";
+
+    // Toggle help text visibility on button click
+    listButton.addEventListener("click", () => {
+        if (listBox.style.display === "none" || !listBox.children.length) {
+            createListBox(); // Populate list on first open or if empty
+        }
+        if (helpText.style.display === "block")
+            helpText.style.display = "none";
+        listBox.style.display = listBox.style.display === "none" ? "block" : "none";
+    });
+
+    document.body.appendChild(listButton);
+    document.body.appendChild(listBox);
 }
 
-function endCross() {
-    const length = _list.length;
+function createListBox() {
+    listBox.innerHTML = ''; // Clear existing content
+    const ul = document.createElement('ul');
+    ul.style.listStyle = "none";
+    ul.style.padding = "0";
+    ul.style.margin = "0";
 
-    let i;
-    for (i = 0; i < length; i++)
-        removeEventSimple(_list[i].body, 'mouseenter', exclude);
-    removeEventSimple(document, 'mouseup', endCross);
+    _list.forEach((singer, index) => {
+        const li = document.createElement('li');
+        // noinspection JSValidateTypes
+        li.dataset.index = index;
+        li.draggable = true;
+        li.style.padding = "5px";
+        li.style.cursor = "pointer";
+
+        // Add checkbox
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = !singer.disabled; // Checked means enabled
+        checkbox.addEventListener('change', () => {
+            if (singer === _currSinger && !checkbox.checked) { // if currently playing
+                checkbox.checked = true;                       // re-enable the track
+                return;
+            }
+            singer.disabled = !checkbox.checked; // Update disabled state
+            updateSingerState(singer); // Reflect the change
+        });
+        li.appendChild(checkbox);
+
+        // Add track title
+        const trackSpan = document.createElement('span');
+        trackSpan.textContent = singer.title;
+        li.appendChild(trackSpan);
+
+        // Click handler for selecting track (ignores checkbox clicks)
+        li.addEventListener('click', (e) => {
+            if (e.target !== checkbox) {
+                setCurrent.call(singer);
+            }
+        });
+
+        // Dragging event listeners (if drag functionality exists)
+        li.addEventListener('dragstart', handleDragStart);
+        li.addEventListener('dragover', handleDragOver);
+        li.addEventListener('drop', handleDrop);
+        li.addEventListener('dragend', handleDragEnd);
+
+        // Apply disabled styling if track is disabled
+        if (singer.disabled) {
+            li.classList.add('disabled');
+        }
+
+        ul.appendChild(li);
+    });
+
+    listBox.appendChild(ul);
+    updateListBox(); // Assuming this refreshes the list
 }
+
+function updateListBox() {
+    const listItems = listBox.querySelectorAll('li');
+    let activeItem = null;
+
+    // Highlight the active track and find its <li> element
+    listItems.forEach(li => {
+        const index = parseInt(li.dataset.index);
+        if (_list[index] === _currSinger) {
+            li.classList.add('active');
+            activeItem = li;  // Store the active <li> for scrolling
+        } else {
+            li.classList.remove('active');
+        }
+    });
+
+    // Scroll to the active track if it exists
+    if (activeItem) {
+        activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function updateSingerState(singer) {
+    const index = _list.indexOf(singer);
+    const li = listBox.querySelector(`li[data-index="${index}"]`);
+
+    if (singer.disabled) {
+        li.classList.add('disabled'); // Gray out the list item
+        singer.color = '#111111'; // Gray color for disabled ball (adjust as needed)
+    } else {
+        li.classList.remove('disabled'); // Restore normal style
+        singer.color = '#400082'; // Default color (adjust as needed)
+    }
+    singer.draw(); // Redraw the ball to reflect the new color
+}
+
+function handleDragStart(e) {
+    draggedItem = this;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.innerHTML);
+    this.style.opacity = '0.4'; // Visual feedback during drag
+}
+
+function handleDragOver(e) {
+    e.preventDefault(); // Required to allow dropping
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDrop(_) {
+    if (draggedItem !== this) {
+        const draggedIndex = parseInt(draggedItem.dataset.index);
+        const targetIndex = parseInt(this.dataset.index);
+
+        // Reorder the _list array
+        const [movedSinger] = _list.splice(draggedIndex, 1); // Remove from old position
+        _list.splice(targetIndex, 0, movedSinger); // Insert at new position
+
+        // Update dataset indices by re-rendering
+        createListBox();
+
+        // Update currentTrack reference if necessary
+        if (_currSinger) {
+            const newCurrentIndex = _list.indexOf(_currSinger);
+            if (newCurrentIndex === -1) {
+                console.error('Current singer lost during reorder');
+            }
+            // Note: _currSinger remains the same object; no need to update playback
+        }
+    }
+    return false;
+}
+
+function handleDragEnd() {
+    this.style.opacity = '1'; // Reset opacity
+    draggedItem = null;
+}
+
+// # ___ _________________  DRAG & DROP BALLS  ______________________
 
 let dragDrop =
     {   // Drag and drop object by Peter-Paul Koch
@@ -541,8 +721,9 @@ let dragDrop =
                 dragDrop.initialMouseY = evt.clientY;
                 dragDrop.startTime = Date.now();         // Initialize start time
                 dragDrop.recentMovements = [];           // Reset movement history
-                addEventSimple(document, 'mousemove', dragDrop.dragMouse);
-                addEventSimple(document, 'mouseup', dragDrop.releaseElement);
+
+                document.addEventListener('mousemove', dragDrop.dragMouse, false);
+                document.addEventListener('mouseup', dragDrop.releaseElement, false);
                 return false;
             }
         },
@@ -592,8 +773,8 @@ let dragDrop =
             let distance = Math.sqrt(dx * dx + dy * dy);
             dragDrop.wasDragged = distance > 5;
 
-            removeEventSimple(document, 'mousemove', dragDrop.dragMouse);
-            removeEventSimple(document, 'mouseup', dragDrop.releaseElement);
+            document.removeEventListener('mousemove', dragDrop.dragMouse, false);
+            document.removeEventListener('mouseup', dragDrop.releaseElement, false);
             dragDrop.draggedObject.className =
                 dragDrop.draggedObject.className.replace(/dragged/, '');
 
@@ -665,14 +846,32 @@ function startApp() {
         keyEnd(event)
     };
     embryoLoop()
+    createListButton()
     createHelpButton();
+
+    // Add styles for active state
+    const style = document.createElement('style');
+    style.textContent = `
+        #listBox li {
+            padding: 5px;
+        }
+        #listBox li.active {
+            font-weight: bold;
+            text-decoration: underline;
+        }
+        #listBox li:hover {
+            text-decoration: underline;
+        }
+        #listBox li.disabled {
+            color: gray;
+            text-decoration: line-through;
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 function populate() {
-    let _ids_list = Array.from({length: _titles.length},
-        (_, i) => i); // Sort by album
-
-    // _ids_list.sort(() => Math.random() - 0.5); // shuffle
+    _ids_list.sort(() => Math.random() - 0.5); // shuffle
     // _ids_list.sort((a, b) => a.title.localeCompare(b.title)); // Sort by title
 
     // console.log(_ids_list);
@@ -720,17 +919,25 @@ function playControl(stop) {
 }
 
 function setCurrent() {
-    let singer = _singers[this.id];
-    if (singer.out) {
-        singer.color = _offColor;
-        singer.draw();
-        _list.unshift(singer);
-        singer.out = false;
-        return;
+    // let singer = _singers[this.id];
+    // let singer = this;
+    // if (this.disabled) {
+    //     this.color = _offColor;
+    //     this.draw();
+    //     // _list.unshift(this);
+    //     this.disabled = false;
+    //     return;
+    // }
+    if (this.disabled) {
+        this.color = _offColor;
+        this.draw();
+        this.disabled = false;
+        return; // Exit if track is disabled
     }
     if (_currSinger) {
-        if (_currSinger === singer) {
+        if (_currSinger === this) {
             playControl();
+            updateListBox(); // Update on play/pause toggle
             return;
         } else {
             _currSinger.toggleSelect();
@@ -740,8 +947,8 @@ function setCurrent() {
     } else {
         Progress.make();
     }
-    singer.toggleSelect();
-    _currSinger = singer;
+    this.toggleSelect();
+    _currSinger = this;
 
     // Resume AudioContext if suspended
     if (Volume.audioCtx.state === 'suspended') {
@@ -750,7 +957,7 @@ function setCurrent() {
         });
     }
 
-    _globalPlayer.src = _musicPath + singer.title + ".mp3";
+    _globalPlayer.src = _musicPath + this.title + ".mp3";
     _globalPlayer.load(); // Ensure the new source is loaded
 
     // Try to play immediately within the click handler
@@ -771,10 +978,11 @@ function setCurrent() {
     }
 
     _globalPlayer.onended = skip; // When track ends, call skip
-    _cover = singer.cover;
+    _cover = this.cover;
     // _list.splice(_list.indexOf(singer), 1);
     // _list.push(singer);
     Area.update();
+    updateListBox(); // Update when switching tracks
 }
 
 function skip(prev = false) {
@@ -787,21 +995,10 @@ function skip(prev = false) {
         else { // Get next track, loop if needed
             nextIndex = (currentIndex + 1) % _list.length;
         }
-        console.log(nextIndex)
-        setCurrent.apply(_list[nextIndex]); // Play the next/previous track
+        setCurrent.call(_list[nextIndex]); // Play the next/previous track
     } else {
-        // setCurrent.apply(_list[0]); // If no current track, play first (not working)
+        setCurrent.call(_list[0]); // If no current track, play first (not working)
     }
-}
-
-function exclude() {
-    if (this.singer !== _currSinger) {
-        this.singer.color = _exColor;
-        this.singer.draw();
-        _list.splice(_list.indexOf(this.singer), 1);
-        this.singer.out = true;
-    }
-    removeEventSimple(this, 'mouseenter', exclude);
 }
 
 // # ___ ___________________  EVENTS  _______________________________
@@ -870,8 +1067,8 @@ function embryoLoop() {
     if (_volDragged || Volume.body.className === "dragged")
         Volume.update();
 
-    if (_currSinger)
-        Volume.draw();
+    // if (_currSinger)
+    Volume.draw();
 
     _loop = window.requestAnimationFrame(embryoLoop);
 }
@@ -879,7 +1076,12 @@ function embryoLoop() {
 function keyStart(evt) {
     let keycode = evt.key || evt.keyCode;
     if (evt.defaultPrevented) return;
-    if (keycode === "ArrowUp" || keycode === 38) {
+    if ((keycode === "Escape")) {
+        console.log("esc");
+        helpText.style.display = "none";
+        listBox.style.display = "none";
+        evt.preventDefault();
+    } else if (keycode === "ArrowUp" || keycode === 38) {
         if (_volume < 1) {
             _volDragged = true;
             Volume.body.style.top = Volume.body.offsetTop - 10 + "px";
@@ -935,16 +1137,35 @@ function keyEnd(evt) {
     }
 }
 
-function addEventSimple(obj, evt, fn) {
-    if (obj.addEventListener)
-        obj.addEventListener(evt, fn, false);
-    // else if (obj.attachEvent) // for older Internet Explorer
-    //     obj.attachEvent('on' + evt, fn);
+// noinspection JSUnusedGlobalSymbols
+function startCross() {
+    _touchTimer = 0;
+
+    const length = _list.length;
+
+    let i;
+    for (i = 0; i < length; i++)
+        _list[i].body.addEventListener('mouseenter', exclude, false);
+
+    document.addEventListener('mouseup', endCross, false);
+    return true
 }
 
-function removeEventSimple(obj, evt, fn) {
-    if (obj.removeEventListener)
-        obj.removeEventListener(evt, fn, false);
-    // else if (obj.detachEvent) // for older Internet Explorer
-    //     obj.detachEvent('on' + evt, fn);
+function endCross() {
+    const length = _list.length;
+
+    let i;
+    for (i = 0; i < length; i++)
+        _list[i].body.removeEventListener('mouseenter', exclude, false);
+    document.removeEventListener('mouseup', endCross, false);
+}
+
+function exclude() {
+    if (this.singer !== _currSinger) {
+        this.singer.color = _exColor;
+        this.singer.draw();
+        // _list.splice(_list.indexOf(this.singer), 1);
+        this.singer.disabled = true;
+    }
+    this.removeEventListener('mouseenter', exclude, false);
 }
