@@ -29,9 +29,6 @@ let volDragged = false;
 let volume = 1;
 let draggedTitle = null;
 
-const globalPlayer = document.createElement("audio");
-globalPlayer.setAttribute("crossorigin", "anonymous");
-globalPlayer.onended = skip; // When track ends, play the next one
 const BARS_COLOR = "#6c00d3"; // 5500aa, 2f0c53
 const BALL_OFF_COLOR = "#400082";
 const BALL_ON_COLOR = "#a47bff"; // 9869ff
@@ -41,20 +38,22 @@ const UTIL_COLOR = "#808080";
 const WIDTH = document.documentElement.clientWidth;
 const HEIGHT = document.documentElement.clientHeight;
 const RADIUS = Math.sqrt(WIDTH * WIDTH + HEIGHT * HEIGHT) / 47;
-const LOGO_CENTER_X = WIDTH * .5;         // Center X for logo
-const LOGO_CENTER_Y = HEIGHT * .25;       // Center Y for logo
+const LOGO_CENTER_X = WIDTH * .5;          // Center X for logo
+const LOGO_CENTER_Y = HEIGHT * .25;        // Center Y for logo
 const LOGO_RADIUS = RADIUS * 3.3;          // Logo circle radius
-const PROGRESS_BAR_WIDTH = WIDTH * .02;   // Width of progress bar
+const PROGRESS_BAR_WIDTH = WIDTH * .02;    // Width of progress bar
 const FONT_HEIGHT = RADIUS / 3;            // Base font size
 const BALL_FONT = FONT_HEIGHT + "px tahoma";      // Font for singer balls
 const BAR_FONT = FONT_HEIGHT + 2 + "px tahoma";   // Font for bars
 const TITLE_FONT = FONT_HEIGHT * 2 + "px tahoma"; // Font for titles
 
-
 const MUSIC_PATH = "https://noembryo.github.io/noEmbryoPlayer/audio/";
 const IMAGE_PATH = "https://noembryo.github.io/noEmbryoPlayer/images/";
 // const MUSIC_PATH = "docs/audio/";
 // const IMAGE_PATH = "docs/images/";
+const globalPlayer = document.createElement("audio");
+globalPlayer.setAttribute("crossorigin", "anonymous");
+globalPlayer.onended = skip; // When track ends, play the next one
 const listButton = document.createElement("button");
 const listBox = document.createElement("div");
 const helpButton = document.createElement("button");
@@ -243,6 +242,20 @@ let Volume =
             this.analyser.connect(this.gainNode);
             this.gainNode.connect(this.audioCtx.destination);
 
+            // Retrieve volume from localStorage
+            const savedVolume = localStorage.getItem('playerVolume');
+            if (savedVolume !== null) {
+                volume = parseFloat(savedVolume); // Convert string to number
+                // Position the volume bar based on saved volume
+                const topPosition = HEIGHT * (0.8 - (volume - 0.1) / 1.52);
+                this.body.style.top = Math.max(HEIGHT * .21,
+                    Math.min(HEIGHT * .87, topPosition)) + "px";
+            } else {
+                volume = 1; // Default value if nothing is saved
+                this.body.style.top = HEIGHT * .21 + "px"; // Default position (max volume)
+            }
+            this.gainNode.gain.value = volume;
+
             this.canvas.id = "volbarcanvas";
             this.canvas.width = WIDTH;
             this.canvas.height = WIDTH * .1;
@@ -258,7 +271,7 @@ let Volume =
             this.body.style.width = WIDTH + "px";
             this.body.style.height = WIDTH * .02 + "px";
             this.body.style.left = "0px";
-            this.body.style.top = HEIGHT * .05 + "px";
+            // this.body.style.top = HEIGHT * .05 + "px";
             this.body.appendChild(this.canvas);
             document.body.appendChild(this.body);
             dragDrop.initElement(this.body.id);
@@ -309,6 +322,7 @@ let Volume =
             this.gainNode.gain.value = volume; // Set gain instead of song.volume
             if (this.body.offsetTop < HEIGHT * .21) this.body.style.top = HEIGHT * .21 + "px";
             else if (this.body.offsetTop > HEIGHT * .87) this.body.style.top = HEIGHT * .87 + "px";
+            localStorage.setItem('playerVolume', volume); // Save to localStorage
         },
     };
 
@@ -456,6 +470,8 @@ function Singer(id) {   // Singer object constructor
     };
 }
 
+// # ___ ___________________  BUTTONS  ______________________________
+
 function createHelpButton() {
     // Create the help button
     helpButton.setAttribute("title", "Help");
@@ -507,8 +523,6 @@ function createHelpButton() {
     document.body.appendChild(helpButton);
     document.body.appendChild(helpText);
 }
-
-// # ___ ___________________  PLAYLIST  _____________________________
 
 function createListButton() {
     listButton.setAttribute("title", "Playlist");
@@ -591,16 +605,14 @@ function createListBox() {
                 ul.appendChild(albumLi);
                 previousAlbum = singer.album;
             }
-            // Create and append track item using createSingerListItem
-            const li = createSingerListItem(singer, index);
-            ul.appendChild(li);
+            // Create and append track item using createListItem
+            ul.appendChild(createListItem(singer, index));
         });
     } else {
         // No album labels when not sorted by album
         singers.forEach((singer, index) => {
-            // Create and append track item using createSingerListItem
-            const li = createSingerListItem(singer, index);
-            ul.appendChild(li);
+            // Create and append track item using createListItem
+            ul.appendChild(createListItem(singer, index));
         });
     }
 
@@ -608,7 +620,7 @@ function createListBox() {
     updateListBox(); // Assuming this refreshes the list
 }
 
-function createSingerListItem(singer, index) {
+function createListItem(singer, index) {
     const li = document.createElement('li');
     // noinspection JSValidateTypes
     li.dataset.index = index;
@@ -757,14 +769,14 @@ function sortByAlbum() {
             return a.id - b.id; // Within album, sort by original order
         }
     });
-    isSortedByAlbum = true; // Set flag to true
+    isSortedByAlbum = true;
     createListBox();
     updateListBox();
 }
 
 function shuffleList() {
     singers.sort(() => Math.random() - 0.5);
-    isSortedByAlbum = false; // Set flag to false
+    isSortedByAlbum = false;
     createListBox();
     updateListBox();
 }
@@ -1016,7 +1028,7 @@ function setupStyle() {
     return style;
 }
 
-// # ___ ___________________  PLAYER'S  _____________________________
+// # ___ ___________________  PLAYER STUFF  _________________________
 
 function playControl(stop) {
     if (stop) {
