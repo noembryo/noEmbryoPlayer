@@ -1198,7 +1198,8 @@ function setupStyle() {
         }
         /*noinspection CssUnusedSymbol*/
         #cacheChk, #removeDisabledChk {
-            /*filter: hue-rotate(120deg);*/
+            margin-right: 5px;
+            margin-bottom: 3px;
             filter: grayscale(1);
             opacity: 0.5;
         }
