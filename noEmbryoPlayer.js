@@ -35,9 +35,10 @@ const BALL_ON_COLOR = "#a47bff"; // 9869ff
 const BALL_DISABLED_COLOR = "#111111";
 const BALL_TEXT_COLOR = "#999999";
 const UTIL_COLOR = "#808080";
-const WIDTH = document.documentElement.clientWidth;
+const MAX_BALL_COUNT = 46;
+const WIDTH = document.documentElement.clientWidth * .98;
 const HEIGHT = document.documentElement.clientHeight;
-const RADIUS = Math.sqrt(WIDTH * WIDTH + HEIGHT * HEIGHT) / 47;
+const RADIUS = Math.sqrt(WIDTH * WIDTH + HEIGHT * HEIGHT) / MAX_BALL_COUNT;
 const LOGO_CENTER_X = WIDTH * .5;          // Center X for logo
 const LOGO_CENTER_Y = HEIGHT * .25;        // Center Y for logo
 const LOGO_RADIUS = RADIUS * 3.3;          // Logo circle radius
@@ -47,17 +48,43 @@ const BALL_FONT = FONT_HEIGHT + "px tahoma";      // Font for singer balls
 const BAR_FONT = FONT_HEIGHT + 2 + "px tahoma";   // Font for bars
 const TITLE_FONT = FONT_HEIGHT * 2 + "px tahoma"; // Font for titles
 
-const MUSIC_PATH = "https://noembryo.github.io/noEmbryoPlayer/audio/";
-const IMAGE_PATH = "https://noembryo.github.io/noEmbryoPlayer/images/";
-// const MUSIC_PATH = "docs/audio/";
-// const IMAGE_PATH = "docs/images/";
+// const MUSIC_PATH = "https://noembryo.github.io/noEmbryoPlayer/audio/";
+// const IMAGE_PATH = "https://noembryo.github.io/noEmbryoPlayer/images/";
+const MUSIC_PATH = "docs/audio/";
+const IMAGE_PATH = "docs/images/";
 const globalPlayer = document.createElement("audio");
 globalPlayer.setAttribute("crossorigin", "anonymous");
 globalPlayer.onended = skip; // When track ends, play the next one
 const listButton = document.createElement("button");
 const listBox = document.createElement("div");
+const configButton = document.createElement("button");
+const configBox = document.createElement("div");
 const helpButton = document.createElement("button");
-const helpText = document.createElement("div");
+const helpBox = document.createElement("div");
+let enableCaching = localStorage.getItem('useCache');
+enableCaching = enableCaching !== null ? enableCaching === "yes" : true;
+// let removeDisabled = true; // Set to true to remove disabled balls by default
+let removeDisabled = localStorage.getItem('removeDisabled');
+removeDisabled = removeDisabled !== null ? removeDisabled === "yes" : false;
+
+
+// # ___ ___________________  DATABASE  _____________________________
+
+let db;
+const request = indexedDB.open("noEmbryoPlayerDB", 1);
+
+request.onupgradeneeded = function(event) {
+    db = event.target.result;
+    db.createObjectStore("audioFiles", { keyPath: "title" });
+};
+
+request.onsuccess = function(event) {
+    db = event.target.result; // 'db' is your global database reference
+};
+
+request.onerror = function(event) {
+    console.error("Database error:", event.target.errorCode);
+};
 
 
 // # ___ ___________________  OBJECTS  ______________________________
@@ -121,23 +148,22 @@ let Area =
         },
     };
 
-
 function canvasMouseDown() {
     // touchTimer = setTimeout(startCross, 100)
 }
 
 function canvasMouseUp() {
-    if (helpText.style.display === "block")
-        helpText.style.display = "none";
-    if (listBox.style.display === "block")
-        listBox.style.display = "none";
+    toggleBoxes();
+    // if (helpBox.style.display === "block")
+    //     helpBox.style.display = "none";
+    // if (listBox.style.display === "block")
+    //     listBox.style.display = "none";
     if (touchTimer) {
         clearTimeout(touchTimer);
     }
 }
 
-let Progress =
-    {
+let Progress = {
         barCanvas: document.createElement("canvas"),
         numCanvas: document.createElement("canvas"),
         barBody: document.createElement("div"),
@@ -215,8 +241,7 @@ let Progress =
         }
     };
 
-let Volume =
-    {
+let Volume = {
         canvas: document.createElement("canvas"),
         body: document.createElement("div"),
 
@@ -332,7 +357,7 @@ function Singer(id) {   // Singer object constructor
     this.friction = 0.97;
     this.color = BALL_OFF_COLOR;
     this.selected = false;
-    // this.disabled = false;
+    this.disabled = false;
 
     this.title = titles[id];
     this.cover = album_ids[id];
@@ -371,8 +396,9 @@ function Singer(id) {   // Singer object constructor
         this.draw();
         this.move();
     };
-    // circle
+
     this.draw = function () {
+        // circle
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.beginPath();
         this.ctx.arc(RADIUS * 1.1, RADIUS * 1.1, RADIUS, 0, 2 * Math.PI);
@@ -384,10 +410,8 @@ function Singer(id) {   // Singer object constructor
         this.ctx.restore();
         this.ctx.lineWidth = RADIUS * 0.07;
         this.ctx.stroke();
-        this.write();
-    };
-    // text
-    this.write = function () {
+
+        // text
         this.ctx.font = BALL_FONT;
         this.ctx.textBaseline = "middle";
         this.ctx.textAlign = "center";
@@ -468,6 +492,14 @@ function Singer(id) {   // Singer object constructor
             this.color = BALL_OFF_COLOR;
         this.draw()
     };
+
+    this.setVisibility = function() {
+        if (removeDisabled && this.disabled) {
+            this.body.style.display = "none"; // Hide the ball
+        } else {
+            this.body.style.display = "block"; // Show the ball
+        }
+    };
 }
 
 // # ___ ___________________  BUTTONS  ______________________________
@@ -480,7 +512,7 @@ function createHelpButton() {
     // Style the button with the image
     helpButton.style.position = "fixed";
     helpButton.style.top = "10px";
-    helpButton.style.left = "60px";
+    helpButton.style.left = "110px";
     helpButton.style.width = "40px";  // Match your image’s width
     helpButton.style.height = "40px"; // Match your image’s height
     helpButton.style.borderRadius = "50%"; // Keeps it round if the image has transparency
@@ -493,35 +525,170 @@ function createHelpButton() {
     helpButton.style.zIndex = "1000"; // Ensures it stays on top
 
     // Create the help text container
-    helpText.innerHTML = `<p>Click a ball to play or pause a song.</br>
+    helpBox.innerHTML = `<p>Click a ball to play or pause a song.</br>
         Arrow keys to adjust volume or seek.</br>
         Ctrl + Left/Right arrow keys to skip.</br>
         The Space key toggles play/pause.
         </p>`;
-    helpText.style.display = "none";
+    helpBox.style.display = "none";
 
     // Style the help text
-    helpText.style.position = "fixed";
-    helpText.style.top = "40px";
-    helpText.style.left = "10px";
-    helpText.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
-    helpText.style.color = UTIL_COLOR;
-    // helpText.style.padding = "10px";
-    // helpText.style.borderRadius = "5px";
-    helpText.style.maxWidth = "280px";
-    helpText.style.zIndex = "1000";
-    // helpText.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.3)";
+    helpBox.style.position = "fixed";
+    helpBox.style.top = "40px";
+    helpBox.style.left = "10px";
+    helpBox.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    helpBox.style.color = UTIL_COLOR;
+    // helpBox.style.padding = "10px";
+    // helpBox.style.borderRadius = "5px";
+    helpBox.style.maxWidth = "280px";
+    helpBox.style.zIndex = "1000";
+    // helpBox.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.3)";
 
     // Toggle help text visibility on button click
     helpButton.addEventListener("click", () => {
-    if (listBox.style.display === "block")
-        listBox.style.display = "none";
-        helpText.style.display = helpText.style.display === "none" ? "block" : "none";
+        toggleBoxes(helpBox)
     });
 
     // Append elements to the DOM
     document.body.appendChild(helpButton);
-    document.body.appendChild(helpText);
+    document.body.appendChild(helpBox);
+}
+
+function createLi(index = 0) {
+    const li = document.createElement('li');
+    // noinspection JSValidateTypes
+    li.dataset.index = index;
+    li.draggable = true;
+    li.style.padding = "1px";
+    li.style.cursor = "pointer";
+    li.style.display = "flex"; // Align image and text horizontally
+    li.style.alignItems = "center"; // Center vertically
+    return li
+}
+
+function createConfigButton() {
+    // Create the help button
+    configButton.setAttribute("title", "Settings");
+    configButton.setAttribute("aria-label", "Show the settings panel");
+
+    // Style the button with the image
+    configButton.style.position = "fixed";
+    configButton.style.top = "10px";
+    configButton.style.left = "60px";
+    configButton.style.width = "40px";  // Match your image’s width
+    configButton.style.height = "40px"; // Match your image’s height
+    configButton.style.borderRadius = "50%"; // Keeps it round if the image has transparency
+    configButton.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
+    configButton.style.backgroundImage = `url('${IMAGE_PATH}config_btn.png')`; // Path to your image
+    configButton.style.backgroundSize = "cover"; // Ensures the image fills the button
+    configButton.style.backgroundPosition = "center"; // Centers the image
+    configButton.style.border = "none"; // No border, assuming the image defines it
+    configButton.style.cursor = "pointer"; // Hand cursor on hover
+    configButton.style.zIndex = "1000"; // Ensures it stays on top
+
+    // Create the Settings container
+    configBox.id = "configBox";
+    configBox.style.position = "fixed";
+    configBox.style.top = "50px";
+    configBox.style.left = "20px";
+    configBox.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    configBox.style.color = UTIL_COLOR;
+    // helpBox.style.padding = "10px";
+    // helpBox.style.borderRadius = "5px";
+    configBox.style.maxWidth = "280px";
+    configBox.style.zIndex = "1000";
+    // helpBox.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.3)";
+    configBox.style.display = "none";
+
+    const ul = document.createElement('ul');
+    ul.style.listStyle = "none";
+    ul.style.padding = "0";
+    ul.style.margin = "0";
+
+    // Remove Disabled setting
+    const removeDisabledLi = createLi();
+    const removeDisabledChk = document.createElement('input');
+    removeDisabledChk.id = "removeDisabledChk";
+    removeDisabledChk.type = 'checkbox';
+    removeDisabledChk.checked = removeDisabled;
+    removeDisabledLi.appendChild(removeDisabledChk);
+
+    const removeDisabledSpan = document.createElement('span');
+    removeDisabledSpan.textContent = "Remove Disabled";
+    removeDisabledLi.appendChild(removeDisabledSpan);
+    ul.appendChild(removeDisabledLi);
+
+    removeDisabledChk.addEventListener('change', () => {
+        if (removeDisabledChk.checked) {
+            localStorage.setItem('removeDisabled', "yes");
+        } else {
+            localStorage.setItem('removeDisabled', "no");
+        }
+        removeDisabled = removeDisabledChk.checked;
+        singers.forEach(singer => singer.setVisibility()); // Update all balls
+    });
+    removeDisabledLi.addEventListener('click', (e) => {
+        if (e.target === removeDisabledSpan) {
+            removeDisabledChk.click()
+        }
+    });
+
+    // Use Cache setting
+    const cacheLi = createLi();
+    const cacheChk = document.createElement('input');
+    cacheChk.id = "cacheChk"
+    cacheChk.type = 'checkbox';
+    cacheChk.checked = enableCaching;
+    cacheLi.appendChild(cacheChk);
+
+    const cacheSpan = document.createElement('span');
+    cacheSpan.textContent = "Cache track files";
+    cacheLi.appendChild(cacheSpan);
+    ul.appendChild(cacheLi)
+
+    cacheChk.addEventListener('change', () => {
+        if (cacheChk.checked) {
+            localStorage.setItem('useCache', "yes");
+        } else {
+            localStorage.setItem('useCache', "no");
+        }
+        enableCaching = cacheChk.checked
+    });
+    cacheLi.addEventListener('click', (e) => {
+        if (e.target === cacheSpan) {
+            cacheChk.click()
+        }
+    });
+
+    // Clear Cache setting
+    const clearLi = createLi();
+    const clearSpan = document.createElement('span');
+    clearSpan.textContent = "\xa0\xa0\xa0\xa0Clear the Cache";
+    ul.appendChild(clearLi)
+    clearLi.appendChild(clearSpan);
+
+    clearLi.addEventListener('click', (_) => {
+        const transaction = db.transaction(["audioFiles"], "readwrite");
+        const objectStore = transaction.objectStore("audioFiles");
+        objectStore.clear();
+        transaction.oncomplete = function() {
+            showToast("Cache cleared")
+        };
+        transaction.onerror = function(event) {
+            showToast(`Error clearing cache: ${event.target.error}`)
+        };
+    });
+
+    configBox.appendChild(ul);
+
+    configButton.addEventListener('click', () => {
+        // Create the settings items (ul)
+        toggleBoxes(configBox)
+    });
+
+    // Append elements to the DOM
+    document.body.appendChild(configButton);
+    document.body.appendChild(configBox);
 }
 
 function createListButton() {
@@ -556,15 +723,13 @@ function createListButton() {
     // listBox.style.borderRadius = "5px";
     listBox.style.display = "none";
 
-    // Toggle help text visibility on button click
     listButton.addEventListener("click", () => {
         if (listBox.style.display === "none" || !listBox.children.length) {
             createListBox(); // Populate list on first open or if empty
             updateListBox(); // Highlight active track
+            // Create and append track item usingindex));
         }
-        if (helpText.style.display === "block")
-            helpText.style.display = "none";
-        listBox.style.display = listBox.style.display === "none" ? "block" : "none";
+        toggleBoxes(listBox)
     });
 
     document.body.appendChild(listButton);
@@ -615,20 +780,12 @@ function createListBox() {
             ul.appendChild(createListItem(singer, index));
         });
     }
-
     listBox.appendChild(ul);
     updateListBox(); // Assuming this refreshes the list
 }
 
 function createListItem(singer, index) {
-    const li = document.createElement('li');
-    // noinspection JSValidateTypes
-    li.dataset.index = index;
-    li.draggable = true;
-    li.style.padding = "1px";
-    li.style.cursor = "pointer";
-    li.style.display = "flex"; // Align image and text horizontally
-    li.style.alignItems = "center"; // Center vertically
+    const li = createLi(index)
 
     // Add custom image
     const stateImg = document.createElement('img');
@@ -656,7 +813,9 @@ function createListItem(singer, index) {
     // Click handler for selecting track
     li.addEventListener('click', (e) => {
         if (e.target !== stateImg) {
-            setCurrent.call(singer);
+            if (!singer.disabled) {
+                setCurrent.call(singer);
+            }
         }
     });
 
@@ -785,7 +944,6 @@ function updateSingerState(singer) {
     const index = singers.indexOf(singer);
     const li = listBox.querySelector(`li[data-index="${index}"]`);
     const stateImg = li.querySelector('img');
-
     if (singer.disabled) {
         li.classList.add('disabled');
         singer.color = BALL_DISABLED_COLOR;
@@ -795,7 +953,18 @@ function updateSingerState(singer) {
         singer.color = BALL_OFF_COLOR; // Default color
         stateImg.src = `${IMAGE_PATH}radio_checked.png`;
     }
-    singer.draw(); // Redraw the ball
+    singer.draw(); // Redraw the ball with updated color
+    singer.setVisibility(); // Update visibility based on new state
+}
+
+function toggleBoxes(current) {
+    for (let box of [helpBox, listBox, configBox]) {
+        if (box !== current)
+            box.style.display = "none";
+    }
+    if (current) {
+        current.style.display = current.style.display === "none" ? "block" : "none";
+    }
 }
 
 // # ___ _________________  DRAG & DROP BALLS  ______________________
@@ -947,6 +1116,8 @@ function startApp() {
     sortByAlbum();
     setTimeout(() => Area.basics(), 1000);
 
+    singers.forEach(singer => singer.setVisibility()); // Set initial visibility
+
     window.onkeydown = function (event) {
         keyStart(event)
     };
@@ -956,6 +1127,7 @@ function startApp() {
 
     embryoLoop()
     createListButton()
+    createConfigButton()
     createHelpButton();
     document.head.appendChild(setupStyle());
 }
@@ -1024,6 +1196,12 @@ function setupStyle() {
             /*padding: 10px 5px;*/
             cursor: pointer;
         }
+        /*noinspection CssUnusedSymbol*/
+        #cacheChk, #removeDisabledChk {
+            /*filter: hue-rotate(120deg);*/
+            filter: grayscale(1);
+            opacity: 0.5;
+        }
     `;
     return style;
 }
@@ -1044,14 +1222,15 @@ function playControl(stop) {
 }
 
 function setCurrent() {
-    // let singer = _singers[this.id];
-    // let singer = this;
+    // Handle disabled tracks
     if (this.disabled) {
         this.color = BALL_OFF_COLOR;
         this.draw();
         this.disabled = false;
         return; // Exit if track is disabled
     }
+
+    // Manage current singer state
     if (currSinger) {
         if (currSinger === this) {
             playControl();
@@ -1063,8 +1242,10 @@ function setCurrent() {
             globalPlayer.currentTime = 0;
         }
     } else {
-        Progress.make();
+        Progress.make(); // Initialize progress bar for new track
     }
+
+    // Set new current singer
     this.toggleSelect();
     currSinger = this;
 
@@ -1074,32 +1255,65 @@ function setCurrent() {
             // console.log('AudioContext resumed');
         });
     }
+    getTrackSource.call(this);
+    // Update UI elements
+    cover = this.cover;
+    Area.update();
+    updateListBox(); // Update when switching tracks
+}
 
-    globalPlayer.src = MUSIC_PATH + this.title + ".mp3";
-    globalPlayer.load(); // Ensure the new source is loaded
+function getTrackSource() {
+    const trackUrl = MUSIC_PATH + this.title + ".mp3";
 
-    // Try to play immediately within the click handler
+    if (!enableCaching) { // Caching disabled: load directly from server
+        playTrack(trackUrl);
+    } else { // Caching enabled: check IndexedDB first
+        const transaction = db.transaction(["audioFiles"], "readonly");
+        const objectStore = transaction.objectStore("audioFiles");
+        const getRequest = objectStore.get(this.title);
+
+        getRequest.onsuccess = function (event) {
+            if (event.target.result) { // Use cached blob from IndexedDB
+                console.log(`Playing ${this.title} from db`)
+                const blob = event.target.result.blob;
+                playTrack(URL.createObjectURL(blob))
+            } else { // Fetch from server, cache in IndexedDB, and play
+                fetch(trackUrl)
+                    .then(response => response.blob())
+                    .then(blob => { // Store in IndexedDB
+                        console.log(`Playing ${this.title} from url`)
+                        const transaction = db.transaction(["audioFiles"], "readwrite");
+                        const objectStore = transaction.objectStore("audioFiles");
+                        objectStore.put({title: this.title, blob: blob});
+                        playTrack(URL.createObjectURL(blob))
+                    })
+                    .catch(error => {
+                        console.error('Fetch failed:', error);
+                    });
+            }
+        }.bind(this);
+
+        getRequest.onerror = function (event) {
+            console.error("Error retrieving from IndexedDB:", event.target.errorCode);
+        };
+    }
+}
+
+function playTrack(source) {
+    globalPlayer.src = source;
+    globalPlayer.load();
     let playPromise = globalPlayer.play();
     if (playPromise !== undefined) {
         playPromise.then(() => {
-            // console.log(`Autoplay started, playing "${currSinger.title}"`);
         }).catch(error => {
             console.log('Autoplay failed:', error);
-            // Fallback: play when audio is ready
-            globalPlayer.oncanplaythrough = function() {
+            globalPlayer.oncanplaythrough = function () {
                 globalPlayer.play().then(_ => {
-                    // console.log(`Playing "${currSinger.title}"`);
                 });
-                globalPlayer.oncanplaythrough = null; // Prevent multiple triggers
+                globalPlayer.oncanplaythrough = null;
             };
         });
     }
-
-    cover = this.cover;
-    // singers.splice(singers.indexOf(singer), 1);
-    // singers.push(singer);
-    Area.update();
-    updateListBox(); // Update when switching tracks
 }
 
 function skip(prev = false) {
@@ -1145,42 +1359,34 @@ function embryoLoop() {
 }
 
 function updateSingers() {
-    let i, j, singer, other, dx, dy, dist, minDist, pointOfContactX,
-        pointOfContactY, courseCorrectionX, courseCorrectionY;
-    let l = singers.length;
+    // Filter active singers based on removeDisabled setting
+    let activeSingers = removeDisabled ? singers.filter(s => !s.disabled) : singers;
+    for (let i = 0; i < activeSingers.length; i++) {
+        let singer = activeSingers[i];
+        for (let j = i + 1; j < activeSingers.length; j++) {
+            let other = activeSingers[j];
+            // Collision detection
+            let dx = other.cx - singer.cx; // Calculate distance between ball centers
+            let dy = other.cy - singer.cy;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            let minDist = RADIUS * 2; // Assuming _radius is the ball radius
 
-    for (i = 0; i < l; i++) {
-        if (!singers[i]) continue; // Skip if singer does not exist
-        singer = singers[i];
-
-        for (j = i + 1; j < l; j++) {
-            if (!singers[j]) continue; // Skip if other does not exist
-            other = singers[j];
-
-            // Calculate distance between ball centers
-            dx = other.cx - singer.cx;
-            dy = other.cy - singer.cy;
-            dist = Math.sqrt(dx * dx + dy * dy);
-            minDist = RADIUS * 2; // Assuming _radius is the ball radius
-
-            // Check for collision
-            if (dist < minDist) {
+            if (dist < minDist) { // Check for collision
                 // Calculate point of contact and correction vector
-                pointOfContactX = singer.cx + (dx / dist) * minDist;
-                pointOfContactY = singer.cy + (dy / dist) * minDist;
-                courseCorrectionX = pointOfContactX - other.cx;
-                courseCorrectionY = pointOfContactY - other.cy;
+                let pointOfContactX = singer.cx + (dx / dist) * minDist;
+                let pointOfContactY = singer.cy + (dy / dist) * minDist;
+                let courseCorrectionX = pointOfContactX - other.cx;
+                let courseCorrectionY = pointOfContactY - other.cy;
 
                 // Handle collision based on ball states
                 if (singer.isStopped() && other.isStopped()) {
                     // Both stopped: do nothing
-                    // continue;
                 } else if (singer.isStopped()) {
                     // Singer stopped, other moving: bounce other off singer
                     other.vx += courseCorrectionX * 2;
                     other.vy += courseCorrectionY * 2;
-                } else if (other.isStopped()) {
                     // Other stopped, singer moving: bounce singer off other
+                } else if (other.isStopped()) {
                     singer.vx -= courseCorrectionX * 2;
                     singer.vy -= courseCorrectionY * 2;
                 } else {
@@ -1192,7 +1398,7 @@ function updateSingers() {
                 }
             }
         }
-        singer.update(); // Update position based on velocity
+        singer.update(); // Update position and motion based on velocity
     }
 }
 
@@ -1219,7 +1425,7 @@ function keyStart(evt) {
     let keycode = evt.key || evt.keyCode;
     if (evt.defaultPrevented) return;
     if ((keycode === "Escape")) {
-        helpText.style.display = "none";
+        helpBox.style.display = "none";
         listBox.style.display = "none";
         evt.preventDefault();
     } else if (keycode === "ArrowUp" || keycode === 38) {
@@ -1276,4 +1482,32 @@ function keyEnd(evt) {
         volDragged = false;
         evt.preventDefault();
     }
+}
+
+// # ___ ___________________  UTILITY STUFF  ________________________
+
+function showToast(message, top = "6%", left = "6%") {
+    // Create a toast element
+    const toast = document.createElement('div');
+    toast.classList.add('toast');
+    toast.innerText = message;
+
+    // Style the toast with CSS
+    toast.style.position = 'fixed';
+    toast.style.top = top;
+    toast.style.left = left;
+    toast.style.transform = 'translate(-50%, -50%)';
+    toast.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    toast.style.color = '#fff';
+    toast.style.padding = '10px 20px';
+    toast.style.borderRadius = '5px';
+    toast.style.zIndex = '9999';
+
+    // Append the toast element to the document body
+    document.body.appendChild(toast);
+
+    // Hide the toast after 3 seconds
+    setTimeout(function() {
+      toast.style.display = 'none';
+    }, 3000);
 }
