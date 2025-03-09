@@ -35,8 +35,8 @@ const BALL_ON_COLOR = "#a47bff"; // 9869ff
 const BALL_DISABLED_COLOR = "#111111";
 const BALL_TEXT_COLOR = "#999999";
 const UTIL_COLOR = "#808080";
-const MAX_BALL_COUNT = 46;
-const WIDTH = document.documentElement.clientWidth * .98;
+const MAX_BALL_COUNT = Math.round(titles.length * 1.3); //47
+const WIDTH = document.documentElement.clientWidth * .98; // remove horizontal bar
 const HEIGHT = document.documentElement.clientHeight;
 const RADIUS = Math.sqrt(WIDTH * WIDTH + HEIGHT * HEIGHT) / MAX_BALL_COUNT;
 const LOGO_CENTER_X = WIDTH * .5;          // Center X for logo
@@ -61,12 +61,11 @@ const configButton = document.createElement("button");
 const configBox = document.createElement("div");
 const helpButton = document.createElement("button");
 const helpBox = document.createElement("div");
-let enableCaching = localStorage.getItem('useCache');
-enableCaching = enableCaching !== null ? enableCaching === "yes" : true;
-// let removeDisabled = true; // Set to true to remove disabled balls by default
 let removeDisabled = localStorage.getItem('removeDisabled');
 removeDisabled = removeDisabled !== null ? removeDisabled === "yes" : false;
-
+let enableCaching = localStorage.getItem('useCache');
+enableCaching = enableCaching !== null ? enableCaching === "yes" : true;
+const cacheTxt = "\xa0\xa0\xa0\xa0Clear the Cache";
 
 // # ___ ___________________  DATABASE  _____________________________
 
@@ -86,6 +85,30 @@ request.onerror = function(event) {
     console.error("Database error:", event.target.errorCode);
 };
 
+async function getIndexedDBSizeInMB() {
+  // Check if the browser supports storage estimation
+  if ('storage' in navigator && 'estimate' in navigator.storage) {
+    try {
+      // Get the storage estimate
+      const estimate = await navigator.storage.estimate();
+      let sizeInBytes;
+
+      // Extract IndexedDB size if available, otherwise use total usage
+      if ('usageDetails' in estimate && 'indexedDB' in estimate.usageDetails) {
+        sizeInBytes = estimate.usageDetails.indexedDB;
+      } else {
+        sizeInBytes = estimate.usage;
+      }
+
+      // Convert bytes to megabytes (1 MB = 1,000,000 bytes)
+        return sizeInBytes > 150000 ? (sizeInBytes / 1000000).toFixed(1) : 0;
+    } catch (error) {
+      throw new Error('Failed to estimate storage size: ' + error.message);
+    }
+  } else {
+    throw new Error('Storage estimation is not supported in this browser');
+  }
+}
 
 // # ___ ___________________  OBJECTS  ______________________________
 
@@ -524,6 +547,11 @@ function createHelpButton() {
     helpButton.style.cursor = "pointer"; // Hand cursor on hover
     helpButton.style.zIndex = "1000"; // Ensures it stays on top
 
+    // Toggle help text visibility on button click
+    helpButton.addEventListener("click", () => {
+        toggleBoxes(helpBox)
+    });
+
     // Create the help text container
     helpBox.innerHTML = `<p>Click a ball to play or pause a song.</br>
         Arrow keys to adjust volume or seek.</br>
@@ -543,11 +571,6 @@ function createHelpButton() {
     helpBox.style.maxWidth = "280px";
     helpBox.style.zIndex = "1000";
     // helpBox.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.3)";
-
-    // Toggle help text visibility on button click
-    helpButton.addEventListener("click", () => {
-        toggleBoxes(helpBox)
-    });
 
     // Append elements to the DOM
     document.body.appendChild(helpButton);
@@ -585,6 +608,15 @@ function createConfigButton() {
     configButton.style.border = "none"; // No border, assuming the image defines it
     configButton.style.cursor = "pointer"; // Hand cursor on hover
     configButton.style.zIndex = "1000"; // Ensures it stays on top
+
+    configButton.addEventListener('click', () => {
+        toggleBoxes(configBox);
+        getIndexedDBSizeInMB().then(cacheSize => {
+            setTimeout(() => {
+                clearSpan.textContent = cacheTxt + ` [${cacheSize} MB]`
+            }, 1000);
+        })
+    });
 
     // Create the Settings container
     configBox.id = "configBox";
@@ -629,7 +661,16 @@ function createConfigButton() {
     });
     removeDisabledLi.addEventListener('click', (e) => {
         if (e.target === removeDisabledSpan) {
-            removeDisabledChk.click()
+            // let obj = {};  // 2do save Playlist
+            // let singer_ids = [];
+            // singers.forEach((singer, idx) => {
+            //     singer_ids.push([idx, singer.id])
+            // });
+            // obj.singer_ids = singer_ids;
+            // obj.albumMode = false;
+            // localStorage.setItem("playlist", JSON.stringify(obj));
+
+            removeDisabledChk.click();
         }
     });
 
@@ -644,7 +685,7 @@ function createConfigButton() {
     const cacheSpan = document.createElement('span');
     cacheSpan.textContent = "Cache track files";
     cacheLi.appendChild(cacheSpan);
-    ul.appendChild(cacheLi)
+    ul.appendChild(cacheLi);
 
     cacheChk.addEventListener('change', () => {
         if (cacheChk.checked) {
@@ -652,19 +693,19 @@ function createConfigButton() {
         } else {
             localStorage.setItem('useCache', "no");
         }
-        enableCaching = cacheChk.checked
+        enableCaching = cacheChk.checked;
     });
     cacheLi.addEventListener('click', (e) => {
         if (e.target === cacheSpan) {
-            cacheChk.click()
+            cacheChk.click();
         }
     });
 
     // Clear Cache setting
     const clearLi = createLi();
     const clearSpan = document.createElement('span');
-    clearSpan.textContent = "\xa0\xa0\xa0\xa0Clear the Cache";
-    ul.appendChild(clearLi)
+    clearSpan.textContent = cacheTxt;
+    ul.appendChild(clearLi);
     clearLi.appendChild(clearSpan);
 
     clearLi.addEventListener('click', (_) => {
@@ -672,19 +713,15 @@ function createConfigButton() {
         const objectStore = transaction.objectStore("audioFiles");
         objectStore.clear();
         transaction.oncomplete = function() {
-            showToast("Cache cleared")
+            toggleBoxes()
+            showToast("Cache cleared");
         };
         transaction.onerror = function(event) {
-            showToast(`Error clearing cache: ${event.target.error}`)
+            showToast(`Error clearing cache: ${event.target.error}`);
         };
     });
 
     configBox.appendChild(ul);
-
-    configButton.addEventListener('click', () => {
-        // Create the settings items (ul)
-        toggleBoxes(configBox)
-    });
 
     // Append elements to the DOM
     document.body.appendChild(configButton);
@@ -709,6 +746,15 @@ function createListButton() {
     listButton.style.cursor = "pointer"; // Hand cursor on hover
     listButton.style.zIndex = "1000"; // Ensures it stays on top
 
+    listButton.addEventListener("click", () => {
+        if (listBox.style.display === "none" || !listBox.children.length) {
+            createListBox(); // Populate list on first open or if empty
+            updateListBox(); // Highlight active track
+            // Create and append track item usingindex));
+        }
+        toggleBoxes(listBox)
+    });
+
     listBox.id = "listBox";  // Ensure the id matches the CSS selector
     listBox.style.position = "fixed";
     listBox.style.top = "50px";
@@ -722,15 +768,6 @@ function createListButton() {
     // listBox.style.padding = "10px"; // Add padding for aesthetics
     // listBox.style.borderRadius = "5px";
     listBox.style.display = "none";
-
-    listButton.addEventListener("click", () => {
-        if (listBox.style.display === "none" || !listBox.children.length) {
-            createListBox(); // Populate list on first open or if empty
-            updateListBox(); // Highlight active track
-            // Create and append track item usingindex));
-        }
-        toggleBoxes(listBox)
-    });
 
     document.body.appendChild(listButton);
     document.body.appendChild(listBox);
@@ -965,6 +1002,12 @@ function toggleBoxes(current) {
     if (current) {
         current.style.display = current.style.display === "none" ? "block" : "none";
     }
+
+    getIndexedDBSizeInMB().then(cacheSize => {
+        setTimeout(() => {
+            configBox.children[0].children[2].textContent = cacheTxt + ` [${cacheSize} MB]`
+        }, 1000);
+    })
 }
 
 // # ___ _________________  DRAG & DROP BALLS  ______________________
@@ -1130,6 +1173,7 @@ function startApp() {
     createConfigButton()
     createHelpButton();
     document.head.appendChild(setupStyle());
+    toggleBoxes()
 }
 
 function calcLaunch() { // puts ball in random unoccupied place
@@ -1370,7 +1414,7 @@ function updateSingers() {
             let dx = other.cx - singer.cx; // Calculate distance between ball centers
             let dy = other.cy - singer.cy;
             let dist = Math.sqrt(dx * dx + dy * dy);
-            let minDist = RADIUS * 2; // Assuming _radius is the ball radius
+            let minDist = RADIUS * 2;      // Assuming _radius is the ball radius
 
             if (dist < minDist) { // Check for collision
                 // Calculate point of contact and correction vector
@@ -1487,7 +1531,7 @@ function keyEnd(evt) {
 
 // # ___ ___________________  UTILITY STUFF  ________________________
 
-function showToast(message, top = "6%", left = "6%") {
+function showToast(message, top = "50px", left = "10px") {
     // Create a toast element
     const toast = document.createElement('div');
     toast.classList.add('toast');
@@ -1497,9 +1541,9 @@ function showToast(message, top = "6%", left = "6%") {
     toast.style.position = 'fixed';
     toast.style.top = top;
     toast.style.left = left;
-    toast.style.transform = 'translate(-50%, -50%)';
-    toast.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-    toast.style.color = '#fff';
+    // toast.style.transform = 'translate(-50%, -50%)';
+    toast.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    toast.style.color = '#808080';
     toast.style.padding = '10px 20px';
     toast.style.borderRadius = '5px';
     toast.style.zIndex = '9999';
