@@ -47,6 +47,7 @@ const FONT_HEIGHT = RADIUS / 3;            // Base font size
 const BALL_FONT = FONT_HEIGHT + "px tahoma";      // Font for singer balls
 const BAR_FONT = FONT_HEIGHT + 2 + "px tahoma";   // Font for bars
 const TITLE_FONT = FONT_HEIGHT * 2 + "px tahoma"; // Font for titles
+const BTN_SIZE = RADIUS * 1.3
 
 const MUSIC_PATH = "https://noembryo.github.io/noEmbryoPlayer/audio/";
 const IMAGE_PATH = "https://noembryo.github.io/noEmbryoPlayer/images/";
@@ -66,49 +67,6 @@ removeDisabled = removeDisabled !== null ? removeDisabled === "yes" : false;
 let enableCaching = localStorage.getItem('useCache');
 enableCaching = enableCaching !== null ? enableCaching === "yes" : true;
 const cacheTxt = "\xa0\xa0\xa0\xa0Clear the Cache";
-
-// # ___ ___________________  DATABASE  _____________________________
-
-let db;
-const request = indexedDB.open("noEmbryoPlayerDB", 1);
-
-request.onupgradeneeded = function(event) {
-    db = event.target.result;
-    db.createObjectStore("audioFiles", { keyPath: "title" });
-};
-
-request.onsuccess = function(event) {
-    db = event.target.result; // 'db' is your global database reference
-};
-
-request.onerror = function(event) {
-    console.error("Database error:", event.target.errorCode);
-};
-
-async function getIndexedDBSizeInMB() {
-  // Check if the browser supports storage estimation
-  if ('storage' in navigator && 'estimate' in navigator.storage) {
-    try {
-      // Get the storage estimate
-      const estimate = await navigator.storage.estimate();
-      let sizeInBytes;
-
-      // Extract IndexedDB size if available, otherwise use total usage
-      if ('usageDetails' in estimate && 'indexedDB' in estimate.usageDetails) {
-        sizeInBytes = estimate.usageDetails.indexedDB;
-      } else {
-        sizeInBytes = estimate.usage;
-      }
-
-      // Convert bytes to megabytes (1 MB = 1,000,000 bytes)
-        return sizeInBytes > 150000 ? (sizeInBytes / 1000000).toFixed(1) : 0;
-    } catch (error) {
-      throw new Error('Failed to estimate storage size: ' + error.message);
-    }
-  } else {
-    throw new Error('Storage estimation is not supported in this browser');
-  }
-}
 
 // # ___ ___________________  OBJECTS  ______________________________
 
@@ -269,9 +227,6 @@ let Volume = {
         body: document.createElement("div"),
 
         make: function () {
-            // noinspection JSUnresolvedReference
-            window.AudioContext = window.AudioContext || window.webkitAudioContext
-                || window.mozAudioContext || window.msAudioContext;
             try {
                 this.audioCtx = new window.AudioContext();
             } catch (e) {
@@ -534,10 +489,10 @@ function createHelpButton() {
 
     // Style the button with the image
     helpButton.style.position = "fixed";
-    helpButton.style.top = "10px";
-    helpButton.style.left = "110px";
-    helpButton.style.width = "40px";  // Match your image’s width
-    helpButton.style.height = "40px"; // Match your image’s height
+    helpButton.style.top = BTN_SIZE * .25 + "px";
+    helpButton.style.left = BTN_SIZE * 3 + "px";
+    helpButton.style.width = BTN_SIZE + "px";  // Match your image’s width
+    helpButton.style.height = BTN_SIZE + "px"; // Match your image’s height
     helpButton.style.borderRadius = "50%"; // Keeps it round if the image has transparency
     helpButton.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
     helpButton.style.backgroundImage = `url('${IMAGE_PATH}help_btn.png')`; // Path to your image
@@ -562,13 +517,13 @@ function createHelpButton() {
 
     // Style the help text
     helpBox.style.position = "fixed";
-    helpBox.style.top = "40px";
-    helpBox.style.left = "10px";
+    helpBox.style.top = BTN_SIZE + "px";
+    helpBox.style.left = BTN_SIZE * .25 + "px";
     helpBox.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
     helpBox.style.color = UTIL_COLOR;
     // helpBox.style.padding = "10px";
     // helpBox.style.borderRadius = "5px";
-    helpBox.style.maxWidth = "280px";
+    helpBox.style.maxWidth = BTN_SIZE * 7 + "px";
     helpBox.style.zIndex = "1000";
     // helpBox.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.3)";
 
@@ -596,10 +551,10 @@ function createConfigButton() {
 
     // Style the button with the image
     configButton.style.position = "fixed";
-    configButton.style.top = "10px";
-    configButton.style.left = "60px";
-    configButton.style.width = "40px";  // Match your image’s width
-    configButton.style.height = "40px"; // Match your image’s height
+    configButton.style.top = BTN_SIZE * .25 + "px";
+    configButton.style.left = BTN_SIZE * 1.6 + "px";
+    configButton.style.width = BTN_SIZE + "px";  // Match your image’s width
+    configButton.style.height = BTN_SIZE + "px"; // Match your image’s height
     configButton.style.borderRadius = "50%"; // Keeps it round if the image has transparency
     configButton.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
     configButton.style.backgroundImage = `url('${IMAGE_PATH}config_btn.png')`; // Path to your image
@@ -621,13 +576,13 @@ function createConfigButton() {
     // Create the Settings container
     configBox.id = "configBox";
     configBox.style.position = "fixed";
-    configBox.style.top = "50px";
-    configBox.style.left = "20px";
+    configBox.style.top = BTN_SIZE * 1.25 + "px";
+    configBox.style.left = BTN_SIZE * .5 + "px";
     configBox.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
     configBox.style.color = UTIL_COLOR;
     // helpBox.style.padding = "10px";
     // helpBox.style.borderRadius = "5px";
-    configBox.style.maxWidth = "280px";
+    configBox.style.maxWidth = BTN_SIZE * 7 + "px";
     configBox.style.zIndex = "1000";
     // helpBox.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.3)";
     configBox.style.display = "none";
@@ -733,10 +688,10 @@ function createListButton() {
     listButton.setAttribute("aria-label", "Show the Player's Playlist");
 
     listButton.style.position = "fixed";
-    listButton.style.top = "10px";
-    listButton.style.left = "10px";
-    listButton.style.width = "40px";  // Match your image’s width
-    listButton.style.height = "40px"; // Match your image’s height
+    listButton.style.top = BTN_SIZE *.25 + "px";
+    listButton.style.left = BTN_SIZE * .25 + "px";
+    listButton.style.width = BTN_SIZE + "px";  // Match your image’s width
+    listButton.style.height = BTN_SIZE + "px"; // Match your image’s height
     listButton.style.borderRadius = "20%"; // Keeps it round if the image has transparency
     listButton.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
     listButton.style.backgroundImage = `url('${IMAGE_PATH}list_btn.png')`; // Path to your image
@@ -750,15 +705,14 @@ function createListButton() {
         if (listBox.style.display === "none" || !listBox.children.length) {
             createListBox(); // Populate list on first open or if empty
             updateListBox(); // Highlight active track
-            // Create and append track item usingindex));
         }
         toggleBoxes(listBox)
     });
 
     listBox.id = "listBox";  // Ensure the id matches the CSS selector
     listBox.style.position = "fixed";
-    listBox.style.top = "50px";
-    listBox.style.left = "10px";
+    listBox.style.top = BTN_SIZE * 1.25 + "px";
+    listBox.style.left = BTN_SIZE * .25 + "px";
     listBox.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
     listBox.style.color = UTIL_COLOR;
     // listBox.style.maxWidth = "200px";
@@ -1149,6 +1103,12 @@ let dragDrop =
 // # ___ ___________________  SETUP  ________________________________
 
 function startApp() {
+    // noinspection JSUnresolvedReference
+    window.AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.msAudioContext;
+    window.onresize = function(){location.reload()};
+    window.onkeydown = function (event) {keyStart(event)};
+    window.onkeyup = function (event) {keyEnd(event)};
+
     Area.make();
     Volume.make();
 
@@ -1160,13 +1120,6 @@ function startApp() {
     setTimeout(() => Area.basics(), 1000);
 
     singers.forEach(singer => singer.setVisibility()); // Set initial visibility
-
-    window.onkeydown = function (event) {
-        keyStart(event)
-    };
-    window.onkeyup = function (event) {
-        keyEnd(event)
-    };
 
     embryoLoop()
     createListButton()
@@ -1527,6 +1480,50 @@ function keyEnd(evt) {
         volDragged = false;
         evt.preventDefault();
     }
+}
+
+
+// # ___ ___________________  DATABASE  _____________________________
+
+let db;
+const request = indexedDB.open("noEmbryoPlayerDB", 1);
+
+request.onupgradeneeded = function(event) {
+    db = event.target.result;
+    db.createObjectStore("audioFiles", { keyPath: "title" });
+};
+
+request.onsuccess = function(event) {
+    db = event.target.result; // 'db' is your global database reference
+};
+
+request.onerror = function(event) {
+    console.error("Database error:", event.target.errorCode);
+};
+
+async function getIndexedDBSizeInMB() {
+  // Check if the browser supports storage estimation
+  if ('storage' in navigator && 'estimate' in navigator.storage) {
+    try {
+      // Get the storage estimate
+      const estimate = await navigator.storage.estimate();
+      let sizeInBytes;
+
+      // Extract IndexedDB size if available, otherwise use total usage
+      if ('usageDetails' in estimate && 'indexedDB' in estimate.usageDetails) {
+        sizeInBytes = estimate.usageDetails.indexedDB;
+      } else {
+        sizeInBytes = estimate.usage;
+      }
+
+      // Convert bytes to megabytes (1 MB = 1,000,000 bytes)
+        return sizeInBytes > 150000 ? (sizeInBytes / 1000000).toFixed(1) : 0;
+    } catch (error) {
+      throw new Error('Failed to estimate storage size: ' + error.message);
+    }
+  } else {
+    throw new Error('Storage estimation is not supported in this browser');
+  }
 }
 
 // # ___ ___________________  UTILITY STUFF  ________________________
