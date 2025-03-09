@@ -48,10 +48,10 @@ const BALL_FONT = FONT_HEIGHT + "px tahoma";      // Font for singer balls
 const BAR_FONT = FONT_HEIGHT + 2 + "px tahoma";   // Font for bars
 const TITLE_FONT = FONT_HEIGHT * 2 + "px tahoma"; // Font for titles
 
-// const MUSIC_PATH = "https://noembryo.github.io/noEmbryoPlayer/audio/";
-// const IMAGE_PATH = "https://noembryo.github.io/noEmbryoPlayer/images/";
-const MUSIC_PATH = "audio/";
-const IMAGE_PATH = "images/";
+const MUSIC_PATH = "https://noembryo.github.io/noEmbryoPlayer/audio/";
+const IMAGE_PATH = "https://noembryo.github.io/noEmbryoPlayer/images/";
+// const MUSIC_PATH = "audio/";
+// const IMAGE_PATH = "images/";
 const globalPlayer = document.createElement("audio");
 globalPlayer.setAttribute("crossorigin", "anonymous");
 globalPlayer.onended = skip; // When track ends, play the next one
