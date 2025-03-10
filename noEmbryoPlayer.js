@@ -24,7 +24,7 @@ let currSinger;
 let lastPos = 0;
 let loop;
 let touchTimer;
-let proFlag = false;
+let proHide = false;
 let proDragged = false;
 let volDragged = false;
 let volume = 1;
@@ -36,8 +36,8 @@ const BALL_ON_COLOR = "#a47bff"; // 9869ff
 const BALL_DISABLED_COLOR = "#111111";
 const BALL_TEXT_COLOR = "#999999";
 const UTIL_COLOR = "#808080";
-const MAX_BALL_COUNT = Math.round(titles.length * 1.3); //47
-const WIDTH = document.documentElement.clientWidth * .98; // remove horizontal bar
+const MAX_BALL_COUNT = Math.round(titles.length * 1.3); // was 47
+const WIDTH = document.documentElement.clientWidth * .98;  // remove horizontal bar
 const HEIGHT = document.documentElement.clientHeight;
 const RADIUS = Math.sqrt(WIDTH * WIDTH + HEIGHT * HEIGHT) / MAX_BALL_COUNT;
 const LOGO_CENTER_X = WIDTH * .5;          // Center X for logo
@@ -76,40 +76,45 @@ const cacheTxt = "\xa0\xa0\xa0\xa0Clear the Cache";
 
 let Area =
     {
-        canvas: document.createElement("canvas"),
-        noEmbryo: document.createElement("img"), // 8000ff
+        background: document.createElement("canvas"),
+        noEmbryoLogo: document.createElement("img"),
         covers: [document.createElement("img"),
             document.createElement("img"),
             document.createElement("img")],
         //timer: setTimeout(function(){}, _delay),
         make: function () {
-            this.canvas.width = WIDTH;
-            this.canvas.height = HEIGHT;
-            this.canvas.onmousedown = function (evt) {
+            this.background.width = WIDTH;
+            this.background.height = HEIGHT;
+            this.background.onmousedown = function (evt) {
                 canvasMouseDown(evt)
             };
-            this.canvas.onmouseup = function (evt) {
+            this.background.onmouseup = function (evt) {
                 canvasMouseUp(evt)
             };
-            document.body.insertBefore(this.canvas, document.body.childNodes[0]);
-            this.ctx = this.canvas.getContext("2d");
+            document.body.insertBefore(this.background, document.body.childNodes[0]);
+            this.ctx = this.background.getContext("2d");
             this.ctx.strokeStyle = BARS_COLOR;
             this.ctx.lineWidth = RADIUS * .05;
             this.ctx.font = TITLE_FONT;
             this.ctx.textBaseline = "top";
             this.ctx.textAlign = "center";
             this.ctx.fillStyle = BALL_TEXT_COLOR;
-            let that = this
-            let downloadingImage = new Image();
-            downloadingImage.onload = function () {
-                that.noEmbryo.src = this.src;
-                that.basics();
-            };
-            downloadingImage.src = IMAGE_PATH + "noembryo.png";
-            this.noEmbryo.src = IMAGE_PATH + "noembryo.png";
+
+            // let that = this
+            // let downloadingImage = new Image();
+            // downloadingImage.onload = function () {
+            //     that.noEmbryoLogo.src = this.src;
+            //     that.basics();
+            // };
+            // downloadingImage.src = IMAGE_PATH + "noembryo.png";
+
+            this.noEmbryoLogo.src = IMAGE_PATH + "noembryo.png";
             albums.forEach((album, idx) => {
                 this.covers[idx].src = IMAGE_PATH + album + ".png";
             })
+            // setTimeout(() => {
+            //     this.basics();
+            // }, 100);
             this.basics();
         },
 
@@ -118,9 +123,11 @@ let Area =
             this.ctx.beginPath();
             this.ctx.arc(LOGO_CENTER_X, LOGO_CENTER_Y, LOGO_RADIUS, 0, 2 * Math.PI);
             this.ctx.stroke();
-            this.ctx.drawImage(this.noEmbryo, LOGO_CENTER_X - LOGO_RADIUS * .65,
-                LOGO_CENTER_Y - LOGO_RADIUS * .65,
-                LOGO_RADIUS * 1.3, LOGO_RADIUS * 1.3);
+            setTimeout(() => {
+                this.ctx.drawImage(this.noEmbryoLogo, LOGO_CENTER_X - LOGO_RADIUS * .65,
+                    LOGO_CENTER_Y - LOGO_RADIUS * .65,
+                    LOGO_RADIUS * 1.3, LOGO_RADIUS * 1.3);
+            }, 100);
         },
 
         update: function () {
@@ -139,10 +146,6 @@ function canvasMouseDown() {
 
 function canvasMouseUp() {
     toggleBoxes();
-    // if (helpBox.style.display === "block")
-    //     helpBox.style.display = "none";
-    // if (listBox.style.display === "block")
-    //     listBox.style.display = "none";
     if (touchTimer) {
         clearTimeout(touchTimer);
     }
@@ -227,8 +230,8 @@ let Progress = {
     };
 
 let Volume = {
-        canvas: document.createElement("canvas"),
-        body: document.createElement("div"),
+        volCanvas: document.createElement("canvas"),
+        volBody: document.createElement("div"),
 
         make: function () {
             try {
@@ -255,41 +258,42 @@ let Volume = {
                 volume = parseFloat(savedVolume); // Convert string to number
                 // Position the volume bar based on saved volume
                 const topPosition = HEIGHT * (0.8 - (volume - 0.1) / 1.52);
-                this.body.style.top = Math.max(HEIGHT * .21,
+                this.volBody.style.top = Math.max(HEIGHT * .21,
                     Math.min(HEIGHT * .87, topPosition)) + "px";
             } else {
                 volume = 1; // Default value if nothing is saved
-                this.body.style.top = HEIGHT * .21 + "px"; // Default position (max volume)
+                this.volBody.style.top = HEIGHT * .21 + "px"; // Default position (max volume)
             }
             this.gainNode.gain.value = volume;
 
-            this.canvas.id = "volbarcanvas";
-            this.canvas.width = WIDTH;
-            this.canvas.height = WIDTH * .1;
-            this.ctx = this.canvas.getContext("2d");
+            this.volCanvas.id = "volbarcanvas";
+            this.volCanvas.width = WIDTH;
+            this.volCanvas.height = WIDTH * .1;
+            this.ctx = this.volCanvas.getContext("2d");
             this.ctx.strokeStyle = BARS_COLOR;
             this.ctx.lineWidth = RADIUS * .05;
             this.ctx.font = BAR_FONT;
             this.ctx.textBaseline = "bottom";
             this.ctx.textAlign = "right";
             this.ctx.fillStyle = BALL_TEXT_COLOR;
-            this.body.id = "volbar";
-            this.body.style.position = "absolute";
-            this.body.style.width = WIDTH + "px";
-            this.body.style.height = WIDTH * .02 + "px";
-            this.body.style.left = "0px";
+            this.volBody.id = "volbar";
+            this.volBody.style.position = "absolute";
+            this.volBody.style.width = WIDTH + "px";
+            this.volBody.style.height = WIDTH * .02 + "px";
+            this.volBody.style.left = "0px";
             // this.body.style.top = HEIGHT * .05 + "px";
-            this.body.appendChild(this.canvas);
-            document.body.appendChild(this.body);
-            dragDrop.initElement(this.body.id);
+            this.volBody.appendChild(this.volCanvas);
+            document.body.appendChild(this.volBody);
+            dragDrop.initElement(this.volBody.id);
             this.update();
         },
 
         draw: function () {// we grab the time domain data and copy it into our array
+            // console.log("xxxxxx")
             this.analyser.getByteTimeDomainData(this.dataArray);
             this.ctx.beginPath();
             //Determine the width of each segment of the line to be drawn.
-            let sliceWidth = this.canvas.width / this.bufferLength;
+            let sliceWidth = this.volCanvas.width / this.bufferLength;
             let x = 0;
             let i;
             let v;
@@ -298,12 +302,12 @@ let Volume = {
             // for each point in the buffer at a certain height based on the data point value
             // form the array, then moving the line across to the place where the next wave
             // segment should be drawn:
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.clearRect(0, 0, this.volCanvas.width, this.volCanvas.height);
 
             // for (i = 0; i < this.bufferLength; i++) {
             for (i = 0; i < this.bufferLength; i++) {
                 v = this.dataArray[i] / 128.0;
-                y = v * this.canvas.height - this.canvas.height * .5;
+                y = v * this.volCanvas.height - this.volCanvas.height * .5;
 
                 if (i === 0)
                     this.ctx.moveTo(x, y);
@@ -314,21 +318,21 @@ let Volume = {
             }
             // Finally, we finish the line in the middle of the right hand side of the canvas,
             // then draw the stroke we've defined:
-            this.ctx.lineTo(this.canvas.width, this.canvas.height * .5);
+            this.ctx.lineTo(this.volCanvas.width, this.volCanvas.height * .5);
             this.ctx.stroke();
 
             this.ctx.fillText("vol  " + Math.round(volume * 100) + " %",
-                Math.round(this.canvas.width * .98),
-                Math.round(this.canvas.height * .45));
+                Math.round(this.volCanvas.width * .98),
+                Math.round(this.volCanvas.height * .45));
         },
 
         update: function () {
-            volume = Math.round(((HEIGHT * .8 - this.body.offsetTop) / HEIGHT * 1.52) * 100 + 10) / 100;
+            volume = Math.round(((HEIGHT * .8 - this.volBody.offsetTop) / HEIGHT * 1.52) * 100 + 10) / 100;
             if (volume > 1) volume = 1;
             else if (volume < 0) volume = 0;
             this.gainNode.gain.value = volume; // Set gain instead of song.volume
-            if (this.body.offsetTop < HEIGHT * .21) this.body.style.top = HEIGHT * .21 + "px";
-            else if (this.body.offsetTop > HEIGHT * .87) this.body.style.top = HEIGHT * .87 + "px";
+            if (this.volBody.offsetTop < HEIGHT * .21) this.volBody.style.top = HEIGHT * .21 + "px";
+            else if (this.volBody.offsetTop > HEIGHT * .87) this.volBody.style.top = HEIGHT * .87 + "px";
             localStorage.setItem('playerVolume', volume); // Save to localStorage
         },
     };
@@ -1138,18 +1142,18 @@ function startApp() {
     Volume.make();
 
     let ids_list = Array.from({length: titles.length},
-        (_, i) => i); // Sorted by album
+        (_, i) => i); // Create the titles idx list
     ids_list.forEach(idx => create_singer(idx));
     try {
-        loadList(); // load the previously saved list
-    } catch (_) {   // first load, no list saved
-        sortByAlbum();
+        loadList();    // load the previously saved list
+    } catch (_) {      // at first load, no saved list exists
+        sortByAlbum(); // so, sort by album
     }
-    setTimeout(() => Area.basics(), 1000);
 
+    // setTimeout(() => Area.basics(), 1000);
     singers.forEach(singer => singer.setVisibility()); // Set initial visibility
-
     document.head.appendChild(setupStyle());
+
     embryoLoop();
     createListButton();
     createConfigButton();
@@ -1311,10 +1315,11 @@ function getTrackSource() {
                         const transaction = db.transaction(["audioFiles"], "readwrite");
                         const objectStore = transaction.objectStore("audioFiles");
                         objectStore.put({title: this.title, blob: blob});
-                        playTrack(URL.createObjectURL(blob))
-                    getIndexedDBSizeInMB().then(cacheSize => {
-                        configBox.children[0].children[2].textContent = cacheTxt + ` [${cacheSize} MB]`
-                    });
+                        playTrack(URL.createObjectURL(blob)
+                        );
+                        getIndexedDBSizeInMB().then(cacheSize => {
+                            configBox.children[0].children[2].textContent = cacheTxt + ` [${cacheSize} MB]`
+                        });
                     })
                     .catch(error => {
                         console.error('Fetch failed:', error);
@@ -1434,9 +1439,9 @@ function updateSingers() {
 function updateProgressBar() {
     if (proDragged || Progress.barBody.className === "dragged") {
         Progress.numBody.style.visibility = "hidden";
-        proFlag = true;
-    } else if (proFlag) {
-        proFlag = false;
+        proHide = true;
+    } else if (proHide) {
+        proHide = false;
         Progress.set();
         Progress.numBody.style.visibility = "visible";
     } else if (currSinger) {
@@ -1456,7 +1461,7 @@ function updateProgressBar() {
 }
 
 function updateVolume() {
-    if (volDragged || Volume.body.className === "dragged") {
+    if (volDragged || Volume.volBody.className === "dragged") {
         Volume.update();
     }
 }
@@ -1471,13 +1476,13 @@ function keyStart(evt) {
     } else if (keycode === "ArrowUp" || keycode === 38) {
         if (volume < 1) {
             volDragged = true;
-            Volume.body.style.top = Volume.body.offsetTop - 10 + "px";
+            Volume.volBody.style.top = Volume.volBody.offsetTop - 10 + "px";
             evt.preventDefault();
         }
     } else if (keycode === "ArrowDown" || keycode === 40) {
         if (volume > 0) {
             volDragged = true;
-            Volume.body.style.top = Volume.body.offsetTop + 10 + "px";
+            Volume.volBody.style.top = Volume.volBody.offsetTop + 10 + "px";
             evt.preventDefault();
         }
     } else if (currSinger) {
