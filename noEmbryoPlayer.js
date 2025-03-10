@@ -50,10 +50,13 @@ const BAR_FONT = FONT_HEIGHT + 2 + "px tahoma";   // Font for bars
 const TITLE_FONT = FONT_HEIGHT * 2 + "px tahoma"; // Font for titles
 const BTN_SIZE = RADIUS * 1.3
 
-const MUSIC_PATH = "https://noembryo.github.io/noEmbryoPlayer/audio/";
-const IMAGE_PATH = "https://noembryo.github.io/noEmbryoPlayer/images/";
+const local = window.location.host.startsWith("localhost");
 // const MUSIC_PATH = "docs/audio/";
 // const IMAGE_PATH = "docs/images/";
+// const MUSIC_PATH = "https://noembryo.github.io/noEmbryoPlayer/audio/";
+// const IMAGE_PATH = "https://noembryo.github.io/noEmbryoPlayer/images/";
+const MUSIC_PATH = local ? "docs/audio/" : "https://noembryo.github.io/noEmbryoPlayer/audio/";
+const IMAGE_PATH = local ? "docs/images/" : "https://noembryo.github.io/noEmbryoPlayer/images/";
 const globalPlayer = document.createElement("audio");
 globalPlayer.setAttribute("crossorigin", "anonymous");
 globalPlayer.onended = skip; // When track ends, play the next one
