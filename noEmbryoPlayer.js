@@ -21,6 +21,7 @@ let remainTime;
 let singers = [];
 let launchPoint;
 let currSinger;
+let lastPos = 0;
 let loop;
 let touchTimer;
 let proFlag = false;
@@ -51,8 +52,8 @@ const BTN_SIZE = RADIUS * 1.3
 
 const MUSIC_PATH = "https://noembryo.github.io/noEmbryoPlayer/audio/";
 const IMAGE_PATH = "https://noembryo.github.io/noEmbryoPlayer/images/";
-// const MUSIC_PATH = "audio/";
-// const IMAGE_PATH = "images/";
+// const MUSIC_PATH = "docs/audio/";
+// const IMAGE_PATH = "docs/images/";
 const globalPlayer = document.createElement("audio");
 globalPlayer.setAttribute("crossorigin", "anonymous");
 globalPlayer.onended = skip; // When track ends, play the next one
@@ -190,7 +191,7 @@ let Progress = {
         },
 
         update: function () {
-            this.barBody.style.left = String(Math.round(WIDTH * .97
+            this.barBody.style.left = String(Math.round(WIDTH // * .97
                 * globalPlayer.currentTime / globalPlayer.duration) + "px");
             this.numBody.style.left = this.barBody.offsetLeft + this.barCanvas.width * .5
                 - this.numCanvas.width * .5 + "px";
@@ -567,9 +568,7 @@ function createConfigButton() {
     configButton.addEventListener('click', () => {
         toggleBoxes(configBox);
         getIndexedDBSizeInMB().then(cacheSize => {
-            setTimeout(() => {
-                clearSpan.textContent = cacheTxt + ` [${cacheSize} MB]`
-            }, 1000);
+            clearSpan.textContent = cacheTxt + ` [${cacheSize} MB]`
         })
     });
 
@@ -616,15 +615,6 @@ function createConfigButton() {
     });
     removeDisabledLi.addEventListener('click', (e) => {
         if (e.target === removeDisabledSpan) {
-            // let obj = {};  // 2do save Playlist
-            // let singer_ids = [];
-            // singers.forEach((singer, idx) => {
-            //     singer_ids.push([idx, singer.id])
-            // });
-            // obj.singer_ids = singer_ids;
-            // obj.albumMode = false;
-            // localStorage.setItem("playlist", JSON.stringify(obj));
-
             removeDisabledChk.click();
         }
     });
@@ -793,6 +783,7 @@ function createListItem(singer, index) {
         singer.disabled = !singer.disabled;
         stateImg.src = singer.disabled ? `${IMAGE_PATH}radio_unchecked.png` : `${IMAGE_PATH}radio_checked.png`;
         updateSingerState(singer);
+        saveCurrentList()
     });
     li.appendChild(stateImg);
 
@@ -868,8 +859,8 @@ function handleDrop(_) {
         singers.splice(targetIndex, 0, movedSinger); // Insert at new position
         isSortedByAlbum = false; // Set flag to false
 
-        // Update dataset indices by re-rendering
-        createListBox();
+        saveCurrentList(); // save the re-arranged list
+        createListBox(); // Update dataset indices by re-rendering
 
         // Update currentTrack reference if necessary
         if (currSinger) {
@@ -909,6 +900,7 @@ function toggleAlbumTracks(album) {
         }
     }
     updateListBox();
+    saveCurrentList()
 }
 
 function sortByAlbum() {
@@ -922,6 +914,7 @@ function sortByAlbum() {
     isSortedByAlbum = true;
     createListBox();
     updateListBox();
+    saveCurrentList();
 }
 
 function shuffleList() {
@@ -929,6 +922,37 @@ function shuffleList() {
     isSortedByAlbum = false;
     createListBox();
     updateListBox();
+    saveCurrentList();
+}
+
+function loadList() {
+    let  listObj = JSON.parse(localStorage.getItem("playlist"));
+    const singerData = listObj.singerIDs
+    const albumMode = listObj.albumMode
+
+    const currentList = []
+    singerData.forEach((singerInfo) => {
+        const singerID = singerInfo[0];
+        const singerDisabled = singerInfo[1];
+        const singer = singers.find(s => s.id === singerID);
+        singer.disabled = singerDisabled
+        currentList.push(singer);
+    });
+    singers.splice(0, currentList.length, ...currentList);
+    isSortedByAlbum = albumMode;
+    createListBox();
+    updateListBox();
+}
+
+function saveCurrentList() {
+    let listObj = {};
+    let singerIDs = [];
+    singers.forEach((singer) => {
+        singerIDs.push([singer.id, singer.disabled])
+    });
+    listObj.singerIDs = singerIDs;
+    listObj.albumMode = isSortedByAlbum;
+    localStorage.setItem("playlist", JSON.stringify(listObj));
 }
 
 function updateSingerState(singer) {
@@ -958,13 +982,11 @@ function toggleBoxes(current) {
     }
 
     getIndexedDBSizeInMB().then(cacheSize => {
-        setTimeout(() => {
-            configBox.children[0].children[2].textContent = cacheTxt + ` [${cacheSize} MB]`
-        }, 1000);
+        configBox.children[0].children[2].textContent = cacheTxt + ` [${cacheSize} MB]`
     })
 }
 
-// # ___ _________________  DRAG & DROP BALLS  ______________________
+// # ___ _________________  DRAG & DROP  ____________________________
 
 let dragDrop =
     {   // Drag and drop object by Peter-Paul Koch
@@ -1045,8 +1067,7 @@ let dragDrop =
 
             document.removeEventListener('mousemove', dragDrop.dragMouse, false);
             document.removeEventListener('mouseup', dragDrop.releaseElement, false);
-            dragDrop.draggedObject.className =
-                dragDrop.draggedObject.className.replace(/dragged/, '');
+            dragDrop.draggedObject.className = dragDrop.draggedObject.className.replace(/dragged/, '');
 
             if (dragDrop.draggedObject.singer) {
                 dragDrop.draggedObject.singer.cx = dragDrop.draggedObject.offsetLeft + RADIUS * 1.1;
@@ -1104,7 +1125,8 @@ let dragDrop =
 
 function startApp() {
     // noinspection JSUnresolvedReference
-    window.AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.msAudioContext;
+    window.AudioContext = window.AudioContext || window.webkitAudioContext
+        || window.mozAudioContext || window.msAudioContext;
     window.onresize = function(){location.reload()};
     window.onkeydown = function (event) {keyStart(event)};
     window.onkeyup = function (event) {keyEnd(event)};
@@ -1113,20 +1135,23 @@ function startApp() {
     Volume.make();
 
     let ids_list = Array.from({length: titles.length},
-        (_, i) => i); // Sort by album
-    // ids_list.sort(() => Math.random() - 0.5); // shuffle
+        (_, i) => i); // Sorted by album
     ids_list.forEach(idx => create_singer(idx));
-    sortByAlbum();
+    try {
+        loadList(); // load the previously saved list
+    } catch (_) {   // first load, no list saved
+        sortByAlbum();
+    }
     setTimeout(() => Area.basics(), 1000);
 
     singers.forEach(singer => singer.setVisibility()); // Set initial visibility
 
-    embryoLoop()
-    createListButton()
-    createConfigButton()
-    createHelpButton();
     document.head.appendChild(setupStyle());
-    toggleBoxes()
+    embryoLoop();
+    createListButton();
+    createConfigButton();
+    createHelpButton();
+    toggleBoxes();
 }
 
 function calcLaunch() { // puts ball in random unoccupied place
@@ -1272,18 +1297,21 @@ function getTrackSource() {
 
         getRequest.onsuccess = function (event) {
             if (event.target.result) { // Use cached blob from IndexedDB
-                console.log(`Playing ${this.title} from db`)
+                // console.log(`Playing ${this.title} from db`)
                 const blob = event.target.result.blob;
                 playTrack(URL.createObjectURL(blob))
             } else { // Fetch from server, cache in IndexedDB, and play
                 fetch(trackUrl)
                     .then(response => response.blob())
                     .then(blob => { // Store in IndexedDB
-                        console.log(`Playing ${this.title} from url`)
+                        // console.log(`Playing ${this.title} from url`)
                         const transaction = db.transaction(["audioFiles"], "readwrite");
                         const objectStore = transaction.objectStore("audioFiles");
                         objectStore.put({title: this.title, blob: blob});
                         playTrack(URL.createObjectURL(blob))
+                    getIndexedDBSizeInMB().then(cacheSize => {
+                        configBox.children[0].children[2].textContent = cacheTxt + ` [${cacheSize} MB]`
+                    });
                     })
                     .catch(error => {
                         console.error('Fetch failed:', error);
@@ -1408,8 +1436,19 @@ function updateProgressBar() {
         proFlag = false;
         Progress.set();
         Progress.numBody.style.visibility = "visible";
-    } else if (currSinger && !globalPlayer.paused) {
-        Progress.update();
+    } else if (currSinger) {
+        if (globalPlayer.paused && Progress.barBody.style.left !== lastPos) {
+            lastPos = Progress.barBody.style.left;
+            Progress.update();
+            // console.log(lastPos)
+        } else if (!globalPlayer.paused) {
+            Progress.update();
+            // console.log("playing")
+        }
+    // } else if (currSinger && globalPlayer.paused) {
+    //     Progress.update();
+    // } else if (currSinger && !globalPlayer.paused) {
+    //     Progress.update();
     }
 }
 
@@ -1502,28 +1541,57 @@ request.onerror = function(event) {
 };
 
 async function getIndexedDBSizeInMB() {
-  // Check if the browser supports storage estimation
-  if ('storage' in navigator && 'estimate' in navigator.storage) {
+    let db;
     try {
-      // Get the storage estimate
-      const estimate = await navigator.storage.estimate();
-      let sizeInBytes;
-
-      // Extract IndexedDB size if available, otherwise use total usage
-      if ('usageDetails' in estimate && 'indexedDB' in estimate.usageDetails) {
-        sizeInBytes = estimate.usageDetails.indexedDB;
-      } else {
-        sizeInBytes = estimate.usage;
-      }
-
-      // Convert bytes to megabytes (1 MB = 1,000,000 bytes)
-        return sizeInBytes > 150000 ? (sizeInBytes / 1000000).toFixed(1) : 0;
-    } catch (error) {
-      throw new Error('Failed to estimate storage size: ' + error.message);
+        db = await openDatabase('noEmbryoPlayerDB'); // Open the database
+        const totalSize = await calculateTotalSize(db); // Calculate the total size of all Blobs
+        const sizeInMB = totalSize / 1000000; // Convert total size from bytes to MB
+        // console.log('Calculated sizeInMB:', sizeInMB); // Log for debugging purposes
+        return sizeInMB > 0.15 ? sizeInMB.toFixed(1) : 0;
+    } catch (error) { // Handle any errors during the process
+        throw new Error('Failed to estimate IndexedDB size: ' + error.message);
+    } finally { // Ensure the database connection is closed
+        if (db) {
+            db.close();
+        }
     }
-  } else {
-    throw new Error('Storage estimation is not supported in this browser');
-  }
+}
+
+function openDatabase(dbName) {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbName);
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
+function calculateTotalSize(db) {
+    return new Promise((resolve, reject) => {
+        // Start a read-only transaction on the audioFiles object store
+        const transaction = db.transaction(['audioFiles'], 'readonly');
+        const store = transaction.objectStore('audioFiles');
+        // Open a cursor to iterate through all records
+        const cursorRequest = store.openCursor();
+        let totalSize = 0;
+        cursorRequest.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                // Access each record
+                const record = cursor.value;
+                // Check if the blob property exists and is a Blob
+                if (record.blob instanceof Blob) {
+                    totalSize += record.blob.size;
+                } else {
+                    console.log('No blob found in record:', record);
+                }
+                cursor.continue(); // Move to the next record
+            } else {
+                // Resolve with the total size when all records are processed
+                resolve(totalSize);
+            }
+        };
+        cursorRequest.onerror = (event) => reject(event.target.error);
+    });
 }
 
 // # ___ ___________________  UTILITY STUFF  ________________________
