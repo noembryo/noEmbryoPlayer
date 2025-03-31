@@ -865,7 +865,7 @@ function createListItem(singer, index) {
 
     // Create the remove image
     const removeImg = document.createElement('img');
-    removeImg.src = 'docs/images/delete.png'; // Adjust path as needed
+    removeImg.src = `${IMAGE_PATH}delete.png`; // Adjust path as needed
     removeImg.style.width = '16px';           // Set a suitable width
     removeImg.style.height = '16px';          // Set a suitable height
     removeImg.style.marginLeft = '6px';      // Space it from the track title
