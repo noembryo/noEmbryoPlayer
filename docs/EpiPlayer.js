@@ -1,17 +1,5 @@
 "use strict";
 
-const titles = ["Glassoid", "Saritan", "Damian", "Siren", "Memoire 2", "Beat Two",
-    "Pianos", "Brass Beat", "Kali", "Nouvel V", "Ricochet", "Sissy", "The G Waltz",
-    "Abandon", "Boringe", "Answered", "Virgo Waltz", "Dawn", "Ooldies", "YRU Dan", "H+Over",
-    "Krama", "Passing", "Deep", "Harpez", "Porcelina", "Echoes", "Fallup", "Tracking",
-    "Miles", "Moon Dark", "String Blocks", "Trest", "La Tenie", "X-Mass", "Kalinyxta"
-];
-// ^^^ SAME LENGTH & ORDER AS THE ABOVE !!! ^^^
-const album_ids = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]; // RESPECTIVE ALBUM NUMBERS
-const albums = ["Glasses", "Angular Blur", "Sole Adjustment"];
-let isSortedByAlbum = false;
-
 let cover;
 let elMin;
 let elSec;
@@ -36,7 +24,8 @@ const BALL_ON_COLOR = "#a47bff"; // 9869ff
 const BALL_DISABLED_COLOR = "#111111";
 const BALL_TEXT_COLOR = "#999999";
 const UTIL_COLOR = "#808080";
-const MAX_BALL_COUNT = Math.round(titles.length * 1.3); // was 47
+// const MAX_BALL_COUNT = Math.round(tracks.length * 1.3); // was 47
+const MAX_BALL_COUNT = 47
 const WIDTH = document.documentElement.clientWidth * .98;  // remove horizontal bar
 const HEIGHT = document.documentElement.clientHeight;
 const RADIUS = Math.sqrt(WIDTH * WIDTH + HEIGHT * HEIGHT) / MAX_BALL_COUNT;
@@ -55,7 +44,7 @@ const LOCAL = window.location.host.startsWith("localhost");
 // const IMAGE_PATH = "docs/images/";
 // const MUSIC_PATH = "https://noembryo.github.io/noEmbryoPlayer/audio/";
 // const IMAGE_PATH = "https://noembryo.github.io/noEmbryoPlayer/images/";
-const MUSIC_PATH = LOCAL ? "docs/audio/" : "https://noembryo.github.io/noEmbryoPlayer/audio/";
+// const MUSIC_PATH = LOCAL ? "docs/audio/" : "https://noembryo.github.io/noEmbryoPlayer/audio/";
 const IMAGE_PATH = LOCAL ? "docs/images/" : "https://noembryo.github.io/noEmbryoPlayer/images/";
 const globalPlayer = document.createElement("audio");
 globalPlayer.setAttribute("crossorigin", "anonymous");
@@ -72,15 +61,21 @@ let enableCaching = localStorage.getItem('useCache');
 enableCaching = enableCaching !== null ? enableCaching === "yes" : true;
 const cacheTxt = "\xa0\xa0\xa0\xa0Clear the Cache";
 
+
+document.addEventListener('dragover', function(e) {
+    e.preventDefault();
+});
+
+document.addEventListener('drop', handleFileDrop);
+let currentBlobUrl = null;
+
+
 // # ___ ___________________  OBJECTS  ______________________________
 
 let Area =
     {
         background: document.createElement("canvas"),
-        noEmbryoLogo: document.createElement("img"),
-        covers: [document.createElement("img"),
-            document.createElement("img"),
-            document.createElement("img")],
+        epiPlayerLogo: document.createElement("img"),
         //timer: setTimeout(function(){}, _delay),
         make: function () {
             this.background.width = WIDTH;
@@ -108,10 +103,7 @@ let Area =
             // };
             // downloadingImage.src = IMAGE_PATH + "noembryo.png";
 
-            this.noEmbryoLogo.src = IMAGE_PATH + "noembryo.png";
-            albums.forEach((album, idx) => {
-                this.covers[idx].src = IMAGE_PATH + album + ".png";
-            })
+            this.epiPlayerLogo.src = IMAGE_PATH + "epiPlayer.png";
             // setTimeout(() => {
             //     this.basics();
             // }, 100);
@@ -124,7 +116,7 @@ let Area =
             this.ctx.arc(LOGO_CENTER_X, LOGO_CENTER_Y, LOGO_RADIUS, 0, 2 * Math.PI);
             this.ctx.stroke();
             setTimeout(() => {
-                this.ctx.drawImage(this.noEmbryoLogo, LOGO_CENTER_X - LOGO_RADIUS * .65,
+                this.ctx.drawImage(this.epiPlayerLogo, LOGO_CENTER_X - LOGO_RADIUS * .65,
                     LOGO_CENTER_Y - LOGO_RADIUS * .65,
                     LOGO_RADIUS * 1.3, LOGO_RADIUS * 1.3);
             }, 500);
@@ -134,8 +126,11 @@ let Area =
             this.basics();
             if (currSinger) {
                 this.ctx.fillText(currSinger.title, WIDTH * .5, HEIGHT * .4);
-                this.ctx.drawImage(this.covers[cover], WIDTH * .5 - LOGO_RADIUS, HEIGHT
-                    * .6 - LOGO_RADIUS, LOGO_RADIUS * 2, LOGO_RADIUS * 2);
+                if (currSinger.coverImg && currSinger.isCoverLoaded) {
+                    this.ctx.drawImage(currSinger.coverImg,
+                        WIDTH * .5 - LOGO_RADIUS, HEIGHT * .6 - LOGO_RADIUS,
+                        LOGO_RADIUS * 2, LOGO_RADIUS * 2);
+                }
             }
         },
     };
@@ -188,28 +183,39 @@ let Progress = {
             this.numCtx.fillStyle = BALL_TEXT_COLOR;
             this.numBody.id = "pronum";
             this.numBody.style.position = "absolute";
-            this.numBody.style.width = WIDTH * .08 + "px";
+            this.numBody.style.width = WIDTH * .08 + "px"; // .08
             this.numBody.style.height = HEIGHT * .03 + "px";
-            this.numBody.style.left = -WIDTH * .03 + "px";
+            // this.numBody.style.left = -WIDTH * .03 + "px";
+            this.numBody.style.left = "0px"; // Initial position, will be overridden by update
             this.numBody.style.top = HEIGHT * .95 + "px";
             this.numBody.appendChild(this.numCanvas);
             document.body.appendChild(this.numBody);
         },
-
         update: function () {
-            this.barBody.style.left = String(Math.round(WIDTH // * .97
-                * globalPlayer.currentTime / globalPlayer.duration) + "px");
-            this.numBody.style.left = this.barBody.offsetLeft + this.barCanvas.width * .5
-                - this.numCanvas.width * .5 + "px";
-            remainTime = globalPlayer.duration - globalPlayer.currentTime;
-            elMin = Math.floor(globalPlayer.currentTime / 60);
-            elSec = Math.floor(globalPlayer.currentTime % 60);
-            reMin = Math.floor(remainTime / 60);
-            reSec = Math.floor(remainTime % 60);
-            this.numCtx.clearRect(0, 0, WIDTH, HEIGHT);
-            this.numCtx.fillText(String(elMin) + this.fix(elSec) + String(elSec)
-                + "    " + String(reMin) + this.fix(reSec) + String(reSec),
-                this.numCanvas.width * .5, this.numCanvas.height * .3);
+            if (!currSinger || !globalPlayer.duration) return;
+
+            // Update progress bar position
+            const progress = globalPlayer.currentTime / globalPlayer.duration;
+            const barLeft = progress * WIDTH;
+            this.barBody.style.left = Math.max(-PROGRESS_BAR_WIDTH, Math.min(WIDTH * 1.02, barLeft)) + "px";
+
+            // Update numBody position to follow the progress bar
+            const numLeft = barLeft - (this.numCanvas.width / 2) + (PROGRESS_BAR_WIDTH / 2);
+            this.numBody.style.left = Math.max(0, Math.min(WIDTH - this.numCanvas.width, numLeft)) + "px";
+
+            // Update time display
+            const elapsed = Math.floor(globalPlayer.currentTime);
+            const remaining = Math.floor(globalPlayer.duration - globalPlayer.currentTime);
+            const elMin = Math.floor(elapsed / 60);
+            const elSec = elapsed % 60;
+            const reMin = Math.floor(remaining / 60);
+            const reSec = remaining % 60;
+            this.numCtx.clearRect(0, 0, this.numCanvas.width, this.numCanvas.height);
+            this.numCtx.fillText(
+                `${elMin}${this.fix(elSec)}${elSec}  | -${reMin}${this.fix(reSec)}${reSec}`,
+                this.numCanvas.width * 0.5,
+                0
+            );
         },
 
         fix: function (sec) {
@@ -289,7 +295,6 @@ let Volume = {
         },
 
         draw: function () {// we grab the time domain data and copy it into our array
-            // console.log("xxxxxx")
             this.analyser.getByteTimeDomainData(this.dataArray);
             this.ctx.beginPath();
             //Determine the width of each segment of the line to be drawn.
@@ -337,17 +342,31 @@ let Volume = {
         },
     };
 
-function Singer(id) {   // Singer object constructor
+function Singer(id, title, artist, coverArt) {
     this.id = id;
+    this.title = title;
+    this.artist = artist;
+    this.coverArt = coverArt; // Data URL or null
+    this.coverImg = coverArt ? new Image() : null;
+    this.isCoverLoaded = false; // New flag to track image load status
+    if (this.coverImg) {
+        this.coverImg.onload = () => {
+            this.isCoverLoaded = true; // Set flag when image is loaded
+            if (this === currSinger) {
+                Area.update(); // Redraw if this is the current singer
+            }
+        };
+        this.coverImg.onerror = () => {
+            console.error(`Failed to load cover art for "${title}"`);
+            this.isCoverLoaded = false; // Ensure flag reflects failure
+        };
+        this.coverImg.src = coverArt; // Set src after defining handlers
+    }
     this.speed = 2;
     this.friction = 0.97;
     this.color = BALL_OFF_COLOR;
     this.selected = false;
     this.disabled = false;
-
-    this.title = titles[id];
-    this.cover = album_ids[id];
-    this.album = albums[this.cover];
 
     this.canvas = document.createElement("canvas");
     this.canvas.id = id;
@@ -366,13 +385,8 @@ function Singer(id) {   // Singer object constructor
         if (!dragDrop.wasDragged) {
             setCurrent.call(this.singer);
         }
-        dragDrop.wasDragged = false; // Reset flag after handling
+        dragDrop.wasDragged = false;
     };
-    // this.body.addEventListener('mousedown', dragDrop.startDragMouse);
-    // this.body.addEventListener('click', () => {
-    //     if (!dragDrop.wasDragged) setCurrent.call(this);
-    //     dragDrop.wasDragged = false; // Reset flag after handling
-    // });
     this.body.appendChild(this.canvas);
     document.body.appendChild(this.body);
     this.cx = this.body.offsetLeft + RADIUS * 1.1;
@@ -397,30 +411,46 @@ function Singer(id) {   // Singer object constructor
         this.ctx.lineWidth = RADIUS * 0.07;
         this.ctx.stroke();
 
-        // text
-        this.ctx.font = BALL_FONT;
+        // Text rendering
+        this.ctx.font = BALL_FONT; // e.g., "16px Arial"
         this.ctx.textBaseline = "middle";
         this.ctx.textAlign = "center";
-        this.ctx.fillStyle = BALL_TEXT_COLOR;
+        this.ctx.fillStyle = BALL_TEXT_COLOR; // e.g., "white"
 
-        let center = Math.floor(this.title.length / 2);
-        let re = / /g;
-        let match;
-        let dist;
-        let closest = [center, 0];
+        const maxCharsPerLine = Math.floor((RADIUS * 2) / (FONT_HEIGHT * 0.6)); // Adjust based on font size
+        const lines = wrapBallText(this.title, maxCharsPerLine);
+        const lineHeight = FONT_HEIGHT * 1.2; // Spacing between lines
+        const totalHeight = lines.length * lineHeight;
+        const startY = RADIUS * 1.1 - totalHeight / 2 + lineHeight / 2;
 
-        while ((match = re.exec(this.title)) != null) {
-            dist = Math.abs(center - match.index);
-            if (dist < closest[0])
-                closest = [dist, match.index];
-        }
-        if (closest[0] !== center) {
-            this.ctx.fillText(this.title.slice(0, closest[1]),
-                RADIUS * 1.1, RADIUS * 1.1 - RADIUS * 0.15);
-            this.ctx.fillText(this.title.slice(closest[1] + 1),
-                RADIUS * 1.1, RADIUS * 1.1 - RADIUS * 0.15 + FONT_HEIGHT)
-        } else
-            this.ctx.fillText(this.title, RADIUS * 1.1, RADIUS * 1.1);
+        lines.forEach((line, index) => {
+            this.ctx.fillText(line, RADIUS * 1.1, startY + index * lineHeight);
+        });
+
+        // // text
+        // this.ctx.font = BALL_FONT;
+        // this.ctx.textBaseline = "middle";
+        // this.ctx.textAlign = "center";
+        // this.ctx.fillStyle = BALL_TEXT_COLOR;
+        //
+        // let center = Math.floor(this.title.length / 2);
+        // let re = / /g;
+        // let match;
+        // let dist;
+        // let closest = [center, 0];
+        //
+        // while ((match = re.exec(this.title)) != null) {
+        //     dist = Math.abs(center - match.index);
+        //     if (dist < closest[0])
+        //         closest = [dist, match.index];
+        // }
+        // if (closest[0] !== center) {
+        //     this.ctx.fillText(this.title.slice(0, closest[1]),
+        //         RADIUS * 1.1, RADIUS * 1.1 - RADIUS * 0.15);
+        //     this.ctx.fillText(this.title.slice(closest[1] + 1),
+        //         RADIUS * 1.1, RADIUS * 1.1 - RADIUS * 0.15 + FONT_HEIGHT)
+        // } else
+        //     this.ctx.fillText(this.title, RADIUS * 1.1, RADIUS * 1.1);
     };
 
     this.move = function () {
@@ -486,6 +516,32 @@ function Singer(id) {   // Singer object constructor
             this.body.style.display = "block"; // Show the ball
         }
     };
+}
+
+// Helper function to wrap text
+function wrapBallText(text, maxChars) {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+        if ((currentLine + word).length > maxChars) {
+            lines.push(currentLine.trim());
+            currentLine = word + ' ';
+        } else {
+            currentLine += word + ' ';
+        }
+    });
+    if (currentLine.trim() !== '') {
+        lines.push(currentLine.trim());
+    }
+
+    // Limit to 3 lines, truncate with ellipsis if needed
+    // if (lines.length > 3) {
+    //     lines[2] = lines[2].slice(0, -3) + '...';
+    //     return lines.slice(0, 3);
+    // }
+    return lines;
 }
 
 // # ___ ___________________  BUTTONS  ______________________________
@@ -661,8 +717,8 @@ function createConfigButton() {
     clearLi.appendChild(clearSpan);
 
     clearLi.addEventListener('click', (_) => {
-        const transaction = db.transaction(["audioFiles"], "readwrite");
-        const objectStore = transaction.objectStore("audioFiles");
+        const transaction = db.transaction(["tracks"], "readwrite");
+        const objectStore = transaction.objectStore("tracks");
         objectStore.clear();
         transaction.oncomplete = function() {
             toggleBoxes()
@@ -727,81 +783,108 @@ function createListButton() {
 function createListBox() {
     listBox.innerHTML = ''; // Clear existing content
 
-    // Add controls div with buttons
+    // Add controls div with shuffle button
     const controlsDiv = document.createElement('div');
-    controlsDiv.style.marginBottom = '10px';
-    const sortButton = document.createElement('button');
-    sortButton.textContent = 'Albums';
-    sortButton.addEventListener('click', sortByAlbum);
-    controlsDiv.appendChild(sortButton);
+    controlsDiv.style.padding = '5px';
+    controlsDiv.style.display = 'flex';
+    controlsDiv.style.justifyContent = 'flex-start';
+
     const shuffleButton = document.createElement('button');
-    shuffleButton.textContent = 'Shuffle';
-    shuffleButton.addEventListener('click', shuffleList);
+    shuffleButton.setAttribute('title', 'Shuffle Playlist');
+    shuffleButton.setAttribute('aria-label', 'Shuffle the playlist randomly');
+    shuffleButton.style.width = BTN_SIZE * 0.8 + 'px'; // Slightly smaller than main buttons
+    shuffleButton.style.height = BTN_SIZE * 0.8 + 'px';
+    shuffleButton.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
+    shuffleButton.style.backgroundImage = `url('${IMAGE_PATH}shuffle_btn.png')`; // Add a shuffle icon if available
+    shuffleButton.style.backgroundSize = 'cover';
+    shuffleButton.style.backgroundPosition = 'center';
+    shuffleButton.style.border = 'none';
+    shuffleButton.style.borderRadius = '50%';
+    shuffleButton.style.cursor = 'pointer';
+    shuffleButton.style.marginRight = '10px'; // Space from the track list
+    shuffleButton.addEventListener('click', () => {
+        shuffleList();
+        showToast('Playlist shuffled');
+    });
+
     controlsDiv.appendChild(shuffleButton);
     listBox.appendChild(controlsDiv);
 
-    // Create the track list (ul)
+    // Add controls div with buttons
     const ul = document.createElement('ul');
+
+    // Create the track list (ul)
     ul.style.listStyle = "none";
     ul.style.padding = "0";
     ul.style.margin = "0";
-
-    if (isSortedByAlbum) {
-        let previousAlbum = null;
-        singers.forEach((singer, index) => {
-            // Insert album label when album changes
-            if (singer.album !== previousAlbum) {
-                const albumLi = document.createElement('li');
-                albumLi.classList.add('album-label');
-                albumLi.textContent = singer.album; // Display album name
-                albumLi.addEventListener('click', () => toggleAlbumTracks(singer.album));
-                ul.appendChild(albumLi);
-                previousAlbum = singer.album;
-            }
-            // Create and append track item using createListItem
-            ul.appendChild(createListItem(singer, index));
-        });
-    } else {
-        // No album labels when not sorted by album
-        singers.forEach((singer, index) => {
-            // Create and append track item using createListItem
-            ul.appendChild(createListItem(singer, index));
-        });
-    }
+    singers.forEach((singer, index) => {
+        ul.appendChild(createListItem(singer, index));
+    });
     listBox.appendChild(ul);
-    updateListBox(); // Assuming this refreshes the list
+    updateListBox();
 }
 
 function createListItem(singer, index) {
-    const li = createLi(index)
+    const li = createLi(index);
 
     // Add custom image
     const stateImg = document.createElement('img');
-    stateImg.src = singer.disabled ? `${IMAGE_PATH}radio_unchecked.png` : `${IMAGE_PATH}radio_checked.png`;
+    stateImg.src = singer.disabled ?
+        `${IMAGE_PATH}radio_unchecked.png` :
+        `${IMAGE_PATH}radio_checked.png`;
     stateImg.style.width = "16px";
     stateImg.style.height = "16px";
     stateImg.style.marginRight = "8px"; // Space between image and text
     stateImg.style.cursor = "pointer"; // Indicate clickable
+    stateImg.setAttribute('title', 'Disable this track'); // Tooltip for clarity
     stateImg.addEventListener('click', (e) => {
         e.stopPropagation(); // Prevent li click handler from firing
-        if (singer === currSinger && !singer.disabled) {
-            return; // Prevent disabling the current track
-        }
+        if (singer === currSinger && !singer.disabled) return;
         singer.disabled = !singer.disabled;
-        stateImg.src = singer.disabled ? `${IMAGE_PATH}radio_unchecked.png` : `${IMAGE_PATH}radio_checked.png`;
+        stateImg.src = singer.disabled ?
+            `${IMAGE_PATH}radio_unchecked.png` :
+            `${IMAGE_PATH}radio_checked.png`;
         updateSingerState(singer);
-        saveCurrentList()
+        saveCurrentList();
     });
     li.appendChild(stateImg);
 
-    // Add track title
+    // Display track title with artist if available
     const trackSpan = document.createElement('span');
-    trackSpan.textContent = singer.title;
+    let displayText = singer.artist ? `(${singer.artist}) ${singer.title}` : singer.title;
+
+    // Define the threshold for wrapping
+    const threshold = 45;
+    if (displayText.length > threshold) {
+        displayText = wrapText(displayText, threshold);
+    }
+
+    trackSpan.innerHTML = displayText; // Use innerHTML to render <br> tags
+    trackSpan.setAttribute('title', 'Play/Pause track'); // Tooltip for clarity
     li.appendChild(trackSpan);
+
+    // Create the remove image
+    const removeImg = document.createElement('img');
+    removeImg.src = 'docs/images/delete.png'; // Adjust path as needed
+    removeImg.style.width = '16px';           // Set a suitable width
+    removeImg.style.height = '16px';          // Set a suitable height
+    removeImg.style.marginLeft = '6px';      // Space it from the track title
+    removeImg.style.cursor = 'pointer';       // Show it’s clickable
+    removeImg.setAttribute('title', 'Remove this track');      // Tooltip for clarity
+    removeImg.setAttribute('aria-label', 'Remove this track'); // Accessibility
+
+    // Add click handler to remove the track
+    removeImg.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent triggering the li’s click handler
+        removeTrack(singer); // Call the existing remove function
+    });
+
+    // Append the image to the list item
+    li.appendChild(removeImg);
 
     // Click handler for selecting track
     li.addEventListener('click', (e) => {
-        if (e.target !== stateImg) {
+        if (e.target !== stateImg && e.target !== removeImg) {
             if (!singer.disabled) {
                 setCurrent.call(singer);
             }
@@ -811,7 +894,7 @@ function createListItem(singer, index) {
     // Dragging event listeners
     li.addEventListener('dragstart', handleDragStart);
     li.addEventListener('dragover', handleDragOver);
-    li.addEventListener('drop', handleDrop);
+    li.addEventListener('drop', handlePlaylistDrop);
     li.addEventListener('dragend', handleDragEnd);
 
     // Apply disabled styling
@@ -820,6 +903,45 @@ function createListItem(singer, index) {
     }
 
     return li;
+}
+
+function wrapText(text, maxLength) {
+    const words = text.split(' ');
+    let lines = [];
+    let currentLine = words[0];
+
+    for (let i = 1; i < words.length; i++) {
+        if (currentLine.length + words[i].length + 1 > maxLength) {
+            lines.push(currentLine);
+            currentLine = words[i];
+        } else {
+            currentLine += ' ' + words[i];
+        }
+    }
+    lines.push(currentLine);
+    return lines.join('<br>');
+}
+
+function removeTrack(singer) {
+    const index = singers.indexOf(singer);
+    if (index > -1) {
+        singers.splice(index, 1);
+    }
+    singer.body.remove();
+    const transaction = db.transaction(["tracks"], "readwrite");
+    const store = transaction.objectStore("tracks");
+    store.delete(singer.id);
+    if (currSinger === singer) {
+        playControl(true);
+        currSinger = null;
+        Area.update();
+        if (currentBlobUrl) {
+            URL.revokeObjectURL(currentBlobUrl);
+            currentBlobUrl = null;
+        }
+    }
+    createListBox();
+    saveCurrentList();
 }
 
 function updateListBox() {
@@ -856,7 +978,19 @@ function handleDragOver(e) {
     return false;
 }
 
-function handleDrop(_) {
+async function handleFileDrop(e) {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    for (let file of files) {
+        if (file.type.startsWith('audio/')) {
+            await processAudioFile(file);
+        }
+    }
+}
+
+function handlePlaylistDrop(e) {
+    e.preventDefault(); // Prevent default behavior
+    e.stopPropagation(); // Stop the event from bubbling to the document-level file drop
     if (draggedTitle !== this) {
         const draggedIndex = parseInt(draggedTitle.dataset.index);
         const targetIndex = parseInt(this.dataset.index);
@@ -864,21 +998,20 @@ function handleDrop(_) {
         // Reorder the singers array
         const [movedSinger] = singers.splice(draggedIndex, 1); // Remove from old position
         singers.splice(targetIndex, 0, movedSinger); // Insert at new position
-        isSortedByAlbum = false; // Set flag to false
 
-        saveCurrentList(); // save the re-arranged list
-        createListBox(); // Update dataset indices by re-rendering
+        saveCurrentList(); // Save the rearranged list
+        createListBox(); // Re-render the playlist to update indices
+        updateListBox(); // Highlight the active track
 
-        // Update currentTrack reference if necessary
+        // Verify currSinger is still valid
         if (currSinger) {
             const newCurrentIndex = singers.indexOf(currSinger);
             if (newCurrentIndex === -1) {
                 console.error('Current singer lost during reorder');
             }
-            // Note: currSinger remains the same object; no need to update playback
+            // No need to adjust playback since currSinger object remains unchanged
         }
     }
-    return false;
 }
 
 function handleDragEnd() {
@@ -886,80 +1019,50 @@ function handleDragEnd() {
     draggedTitle = null;
 }
 
-function toggleAlbumTracks(album) {
-    const albumSingers = singers.filter(s => s.album === album);
-    const allDisabled = albumSingers.every(s => s.disabled);
-    if (allDisabled) {
-        // Enable all tracks
-        albumSingers.forEach(s => {
-            s.disabled = false;
-            updateSingerState(s);
-        });
-    } else {
-        // Disable all tracks
-        albumSingers.forEach(s => {
-            s.disabled = true;
-            updateSingerState(s);
-        });
-        // If current track is disabled, skip to next enabled track
-        if (currSinger && albumSingers.includes(currSinger)) {
-            skip();
-        }
-    }
-    updateListBox();
-    saveCurrentList()
-}
-
-function sortByAlbum() {
-    singers.sort((a, b) => {
-        if (a.cover !== b.cover) {
-            return a.cover - b.cover; // Sort by album number
-        } else {
-            return a.id - b.id; // Within album, sort by original order
-        }
-    });
-    isSortedByAlbum = true;
-    createListBox();
-    updateListBox();
-    saveCurrentList();
-}
-
 function shuffleList() {
     singers.sort(() => Math.random() - 0.5);
-    isSortedByAlbum = false;
     createListBox();
     updateListBox();
     saveCurrentList();
-}
-
-function loadList() {
-    let  listObj = JSON.parse(localStorage.getItem("playlist"));
-    const singerData = listObj.singerIDs
-    const albumMode = listObj.albumMode
-
-    const currentList = []
-    singerData.forEach((singerInfo) => {
-        const singerID = singerInfo[0];
-        const singerDisabled = singerInfo[1];
-        const singer = singers.find(s => s.id === singerID);
-        singer.disabled = singerDisabled
-        currentList.push(singer);
-    });
-    singers.splice(0, currentList.length, ...currentList);
-    isSortedByAlbum = albumMode;
-    createListBox();
-    updateListBox();
 }
 
 function saveCurrentList() {
-    let listObj = {};
-    let singerIDs = [];
-    singers.forEach((singer) => {
-        singerIDs.push([singer.id, singer.disabled])
-    });
-    listObj.singerIDs = singerIDs;
-    listObj.albumMode = isSortedByAlbum;
-    localStorage.setItem("playlist", JSON.stringify(listObj));
+    const singerIDs = singers.map(singer => [singer.id, singer.disabled]);
+    localStorage.setItem("playlist", JSON.stringify({ singerIDs }));
+}
+
+async function loadList() {
+    const listObj = JSON.parse(localStorage.getItem("playlist"));
+    if (listObj) {
+        const singerData = listObj.singerIDs;
+        const promises = singerData.map(([id, disabled]) => {
+            return new Promise((resolve) => {
+                const transaction = db.transaction(["tracks"], "readonly");
+                const store = transaction.objectStore("tracks");
+                const request = store.get(id);
+                request.onsuccess = function(event) {
+                    const track = event.target.result;
+                    if (track) {
+                        const singer = new Singer(id, track.title, track.artist, track.coverArt);
+                        singer.disabled = disabled;
+                        resolve(singer);
+                    } else {
+                        resolve(null);
+                    }
+                };
+            });
+        });
+        const loadedSingers = await Promise.all(promises);
+        singers = loadedSingers.filter(singer => singer !== null);
+        singers.forEach(singer => {
+            calcLaunch();
+            singer.cx = launchPoint.x;
+            singer.cy = launchPoint.y;
+            singer.make();
+            singer.setVisibility();
+        });
+        createListBox();
+    }
 }
 
 function updateSingerState(singer) {
@@ -1128,37 +1231,98 @@ let dragDrop =
         }
     };
 
+async function processAudioFile(file) {
+    try {
+        const metadata = await readMetadata(file);
+        const title = metadata.title;
+        const artist = metadata.artist;
+        const coverArt = metadata.coverArt || null;
+        const id = await storeTrack(file, title, artist, coverArt);
+        createSinger(id, title, artist, coverArt);
+        saveCurrentList();
+    } catch (error) {
+        console.error('Error processing file:', error);
+    }
+}
+
+function storeTrack(blob, title, artist, coverArt) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(["tracks"], "readwrite");
+        const store = transaction.objectStore("tracks");
+        const request = store.add({ blob, title, artist, coverArt });
+        request.onsuccess = function(event) {
+            resolve(event.target.result);
+        };
+        request.onerror = function(event) {
+            reject(event.target.error);
+        };
+    });
+}
+
+function createSinger(id, title, artist, coverArt) {
+    calcLaunch();
+    const singer = new Singer(id, title, artist, coverArt);
+    singer.cx = launchPoint.x;
+    singer.cy = launchPoint.y;
+    singer.make();
+    singers.push(singer);
+    singer.setVisibility();
+    if (listBox.style.display !== "none") {
+        createListBox(); // Refresh playlist if open
+    }
+}
+
+
 // # ___ ___________________  SETUP  ________________________________
 
 function startApp() {
     // noinspection JSUnresolvedReference
     window.AudioContext = window.AudioContext || window.webkitAudioContext
         || window.mozAudioContext || window.msAudioContext;
-    window.onresize = function(){location.reload()};
-    window.onkeydown = function (event) {keyStart(event)};
-    window.onkeyup = function (event) {keyEnd(event)};
+    window.onresize = function() {
+        if (currSinger && !globalPlayer.paused) {
+            localStorage.setItem('resizeReload', 'true');
+            localStorage.setItem('savedTrackId', currSinger.id);
+            // noinspection JSCheckFunctionSignatures
+            localStorage.setItem('savedTime', globalPlayer.currentTime);
+        }
+        location.reload();
+    };
+    window.onkeydown = function(event) { keyStart(event); };
+    window.onkeyup = function(event) { keyEnd(event); };
 
     Area.make();
     Volume.make();
-
-    let ids_list = Array.from({length: titles.length},
-        (_, i) => i); // Create the titles idx list
-    ids_list.forEach(idx => create_singer(idx));
-    try {
-        loadList();    // load the previously saved list
-    } catch (_) {      // at first load, no saved list exists
-        sortByAlbum(); // so, sort by album
-    }
-
-    // setTimeout(() => Area.basics(), 1000);
-    singers.forEach(singer => singer.setVisibility()); // Set initial visibility
     document.head.appendChild(setupStyle());
+    loadList().then(() => {
+        embryoLoop();
+        createListButton();
+        createConfigButton();
+        createHelpButton();
+        toggleBoxes();
 
-    embryoLoop();
-    createListButton();
-    createConfigButton();
-    createHelpButton();
-    toggleBoxes();
+        // Restore playback if it was a resize reload
+        const resizeReload = localStorage.getItem('resizeReload');
+        if (resizeReload === 'true') {
+            localStorage.removeItem('resizeReload');
+            const savedTrackId = localStorage.getItem('savedTrackId');
+            const savedTime = localStorage.getItem('savedTime');
+            if (savedTrackId && savedTime) {
+                const singer = singers.find(s => s.id === parseInt(savedTrackId));
+                if (singer) {
+                    setCurrent.call(singer, false); // Don't start playing immediately
+                    globalPlayer.addEventListener('loadedmetadata', function() {
+                        globalPlayer.currentTime = parseFloat(savedTime);
+                        globalPlayer.play().catch(error => {
+                            console.log('Playback failed after resize:', error);
+                        });
+                    }, { once: true });
+                }
+            }
+            localStorage.removeItem('savedTrackId');
+            localStorage.removeItem('savedTime');
+        }
+    });
 }
 
 function calcLaunch() { // puts ball in random unoccupied place
@@ -1171,17 +1335,6 @@ function calcLaunch() { // puts ball in random unoccupied place
         calcLaunch();
     else
         launchPoint = point;
-}
-
-function create_singer(id) {
-    if (!singers[id]) {
-        calcLaunch();
-        let singer = new Singer(id);
-        singer.cx = launchPoint.x;
-        singer.cy = launchPoint.y;
-        singer.make();
-        singers[id] = singer;
-    }
 }
 
 function setupStyle() {
@@ -1232,6 +1385,40 @@ function setupStyle() {
             filter: grayscale(1);
             opacity: 0.5;
         }
+        
+        /* Make the ListBox items have equal width */
+        #listBox li {
+            display: flex;
+            align-items: flex-start; /* Align images and text to the top */
+            padding: 5px;
+        }
+        #listBox li img {
+            margin-right: 8px; /* Space between images and text */
+            align-self: flex-start; /* Ensure images stay at the top */
+        }
+        #listBox li span {
+            flex-grow: 1;
+            white-space: normal; /* Allow text to wrap */
+            line-height: 1.2;    /* Improve readability of wrapped lines */
+            align-self: flex-start; /* Align text to the top */
+        }
+        #listBox div {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+        }
+        /*!*noinspection CssUnusedSymbol *!*/
+        /*#listBox {*/
+        /*    position: fixed;*/
+        /*    top: ${BTN_SIZE * 1.25}px;*/
+        /*    left: ${BTN_SIZE * 0.25}px;*/
+        /*    background-color: rgba(0, 0, 0, 0.5);*/
+        /*    color: ${UTIL_COLOR};*/
+        /*    z-index: 1000;*/
+        /*    max-height: ${HEIGHT - 70}px;*/
+        /*    overflow-y: auto;*/
+        /*}*/
+        
     `;
     return style;
 }
@@ -1251,20 +1438,20 @@ function playControl(stop) {
     }
 }
 
-function setCurrent() {
-    // Handle disabled tracks
+function setCurrent(startPlaying = true) {
     if (this.disabled) {
         this.color = BALL_OFF_COLOR;
         this.draw();
         this.disabled = false;
-        return; // Exit if track is disabled
+        return;
     }
 
-    // Manage current singer state
     if (currSinger) {
         if (currSinger === this) {
-            playControl();
-            updateListBox(); // Update on play/pause toggle
+            if (startPlaying) {
+                playControl();
+            }
+            updateListBox();
             return;
         } else {
             currSinger.toggleSelect();
@@ -1272,82 +1459,37 @@ function setCurrent() {
             globalPlayer.currentTime = 0;
         }
     } else {
-        Progress.make(); // Initialize progress bar for new track
+        Progress.make();
     }
 
-    // Set new current singer
     this.toggleSelect();
     currSinger = this;
 
-    // Resume AudioContext if suspended
     if (Volume.audioCtx.state === 'suspended') {
-        Volume.audioCtx.resume().then(() => {
-            // console.log('AudioContext resumed');
-        });
+        Volume.audioCtx.resume().then(_ => null);
     }
-    getTrackSource.call(this);
-    // Update UI elements
-    cover = this.cover;
-    Area.update();
-    updateListBox(); // Update when switching tracks
-}
 
-function getTrackSource() {
-    const trackUrl = MUSIC_PATH + this.title + ".mp3";
-
-    if (!enableCaching) { // Caching disabled: load directly from server
-        playTrack(trackUrl);
-    } else { // Caching enabled: check IndexedDB first
-        const transaction = db.transaction(["audioFiles"], "readonly");
-        const objectStore = transaction.objectStore("audioFiles");
-        const getRequest = objectStore.get(this.title);
-
-        getRequest.onsuccess = function (event) {
-            if (event.target.result) { // Use cached blob from IndexedDB
-                // console.log(`Playing ${this.title} from db`)
-                const blob = event.target.result.blob;
-                playTrack(URL.createObjectURL(blob))
-            } else { // Fetch from server, cache in IndexedDB, and play
-                fetch(trackUrl)
-                    .then(response => response.blob())
-                    .then(blob => { // Store in IndexedDB
-                        // console.log(`Playing ${this.title} from url`)
-                        const transaction = db.transaction(["audioFiles"], "readwrite");
-                        const objectStore = transaction.objectStore("audioFiles");
-                        objectStore.put({title: this.title, blob: blob});
-                        playTrack(URL.createObjectURL(blob)
-                        );
-                        getIndexedDBSizeInMB().then(cacheSize => {
-                            configBox.children[0].children[2].textContent = cacheTxt + ` [${cacheSize} MB]`
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Fetch failed:', error);
-                    });
-            }
-        }.bind(this);
-
-        getRequest.onerror = function (event) {
-            console.error("Error retrieving from IndexedDB:", event.target.errorCode);
-        };
+    if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
     }
-}
-
-function playTrack(source) {
-    globalPlayer.src = source;
-    globalPlayer.load();
-    let playPromise = globalPlayer.play();
-    if (playPromise !== undefined) {
-        playPromise.then(() => {
-        }).catch(error => {
-            console.log('Autoplay failed:', error);
-            globalPlayer.oncanplaythrough = function () {
-                globalPlayer.play().then(_ => {
+    const transaction = db.transaction(["tracks"], "readonly");
+    const store = transaction.objectStore("tracks");
+    const request = store.get(this.id);
+    request.onsuccess = function(event) {
+        const track = event.target.result;
+        if (track) {
+            currentBlobUrl = URL.createObjectURL(track.blob);
+            globalPlayer.src = currentBlobUrl;
+            globalPlayer.load();
+            if (startPlaying) {
+                globalPlayer.play().catch(error => {
+                    console.log('Playback failed:', error);
                 });
-                globalPlayer.oncanplaythrough = null;
-            };
-        });
-    }
+            }
+        }
+    };
+    Area.update();
+    updateListBox();
 }
 
 function skip(prev = false) {
@@ -1445,18 +1587,7 @@ function updateProgressBar() {
         Progress.set();
         Progress.numBody.style.visibility = "visible";
     } else if (currSinger) {
-        if (globalPlayer.paused && Progress.barBody.style.left !== lastPos) {
-            lastPos = Progress.barBody.style.left;
-            Progress.update();
-            // console.log(lastPos)
-        } else if (!globalPlayer.paused) {
-            Progress.update();
-            // console.log("playing")
-        }
-    // } else if (currSinger && globalPlayer.paused) {
-    //     Progress.update();
-    // } else if (currSinger && !globalPlayer.paused) {
-    //     Progress.update();
+        Progress.update(); // Call corrected update
     }
 }
 
@@ -1533,15 +1664,21 @@ function keyEnd(evt) {
 // # ___ ___________________  DATABASE  _____________________________
 
 let db;
-const request = indexedDB.open("noEmbryoPlayerDB", 1);
+const request = indexedDB.open("noEmbryoPlayerDB", 2); // Increment version to update schema
 
 request.onupgradeneeded = function(event) {
     db = event.target.result;
-    db.createObjectStore("audioFiles", { keyPath: "title" });
+    if (!db.objectStoreNames.contains("tracks")) {
+        db.createObjectStore("tracks", { keyPath: "id", autoIncrement: true });
+    }
+    // Optionally delete old "audioFiles" store if it exists
+    if (db.objectStoreNames.contains("audioFiles")) {
+        db.deleteObjectStore("audioFiles");
+    }
 };
 
 request.onsuccess = function(event) {
-    db = event.target.result; // 'db' is your global database reference
+    db = event.target.result;
 };
 
 request.onerror = function(event) {
@@ -1576,8 +1713,8 @@ function openDatabase(dbName) {
 function calculateTotalSize(db) {
     return new Promise((resolve, reject) => {
         // Start a read-only transaction on the audioFiles object store
-        const transaction = db.transaction(['audioFiles'], 'readonly');
-        const store = transaction.objectStore('audioFiles');
+        const transaction = db.transaction(['tracks'], 'readonly');
+        const store = transaction.objectStore('tracks');
         // Open a cursor to iterate through all records
         const cursorRequest = store.openCursor();
         let totalSize = 0;
@@ -1626,6 +1763,33 @@ function showToast(message, top = "50px", left = "10px") {
 
     // Hide the toast after 3 seconds
     setTimeout(function() {
-      toast.style.display = 'none';
+        toast.style.display = 'none';
+        document.body.removeChild(toast);
     }, 3000);
+}
+
+function readMetadata(file) {
+    // noinspection JSUnusedLocalSymbols
+    return new Promise((resolve, reject) => {
+        // noinspection JSUnresolvedReference
+        jsmediatags.read(file, {
+            onSuccess: function(tag) {
+                const title = tag.tags.title || file.name.replace(/\.[^/.]+$/, "");
+                const artist = tag.tags.artist || null; // Extract artist name
+                let coverArt = null;
+                if (tag.tags.picture) {
+                    const picture = tag.tags.picture;
+                    const base64String = btoa(
+                        new Uint8Array(picture.data)
+                            .reduce((data, byte) => data + String.fromCharCode(byte), '')
+                    );
+                    coverArt = `data:${picture.format};base64,${base64String}`;
+                }
+                resolve({ title, artist, coverArt });
+            },
+            onError: function(error) {
+                resolve({ title: file.name.replace(/\.[^/.]+$/, ""), artist: null, coverArt: null });
+            }
+        });
+    });
 }
